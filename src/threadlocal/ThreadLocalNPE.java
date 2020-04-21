@@ -10,6 +10,7 @@ public class ThreadLocalNPE {
         longThreadLocal.set(Thread.currentThread().getId());
     }
 
+    // 拆箱可能发生nullPointException
     public long get(){
         return longThreadLocal.get();
     }

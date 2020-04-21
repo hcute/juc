@@ -352,7 +352,7 @@
     - shutdown
       - 不接收新任务，但处理排队任务
     - stop
-      - 不接收心任务，也不处理排队任务，并中断正在进行的任务
+      - 不接收新任务，也不处理排队任务，并中断正在进行的任务
     - tidying
       - 所有的任务都已终止，workCount为0，线程会转换到TIDYING状态，并将运行teminate()钩子方法
     - terminated
@@ -435,7 +435,86 @@
   - **如何避免【阿里规约】**
     - 使用完了ThreadLocal，就需要调用remove方法
 - 空指针异常
-  - 
+  - get方法不会报nullPointException，只有自己使用get后的操作会报npe
+- 共享对象
+  - 如果放进去的是共享对象，比如static修饰的，同样会存在线程安全问题，不应该放共享对象
+- 如果不需要使用ThreadLocal就不用
+- 优先使用框架的支持
+  - Spring
+    - RequestContextHolder
+    - DateTimeContextHolder
+  - http请求是一个线程，相互独立，适合用ThreadLocal
+
+
+
+## 锁
+
+### Lock接口
+
+- 简介、地位和作用
+  - 是一种工具，对共享资源访问进行控制
+  - Lock 和 Synchronized，这是两个常见的锁，都能达到线程安全，但是使用的方法和功能上差别比较大
+  - Lock并不是来代替synchronized的，而是当使用synchronized不适合或不满足要求的时候，来提供高级功能
+  - Lock最长见的实现类ReentrantLock
+  - 通常情况下，Lock只允许一个线程来访问这个共享资源，不过有些时候，一些特殊的实现可以允许并发访问，比如ReadWriteLock里的ReadLock
+- 为什么synchronized不够用，为什么需要lock
+  - synchronized 效率比较低，锁释放的情况比较少（执行代码完成），试图获得锁时不能设定超时，不能中断一个正在试图获取锁的线程
+  - synchronized 不够灵活（读写锁更灵活）：加锁和释放时机单一，每个锁仅有单一的条件（某个对象），可能是不够的
+  - synchronized  无法知道是否成功获取到了锁
+- 方法介绍
+  - 常见方法
+    - lock
+      - 获取锁，如果锁被其他线程获取，则进行等待
+      - 和synchronzied不一样，异常时不会释放锁，必须放在finally里释放锁
+      - lock方法不能被中断，这会带来很大的隐患，一旦陷入死锁，lock就会永久等待
+    - trylock
+      - 尝试获取锁，当前锁被其他线程占有，则获取失败返回false，没有被占有返回true
+      - 相对于lock，更有优势，可以根据是否获取到锁来判定是否执行后面的代码
+      - 会立刻返回，不会一直等待
+    - tryLock(long time,TimeUnit unit)
+      - 在一段时间内返回true 和false
+    - tryInterruptibly()
+      - 相当于tryLock(long time,TimeUnit unit)把超时时间设置为无限，在等待锁的过程中，线程可以被中断
+    - unlock
+      - 获取到锁立马写释放锁的代码
+- 可见性保证
+  - 和synchronized 有同样的内存模型
+
+### 锁的分类
+
+
+
+### 乐观锁和悲观锁
+
+
+
+### 可重入锁和非可重入锁
+
+
+
+### 公平锁和非公平锁
+
+
+
+### 共享锁和排他锁
+
+
+
+### 自旋锁和阻塞锁
+
+
+
+### 可中断锁
+
+
+
+### 锁优化
+
+
+
+
+
+
 
 
 
