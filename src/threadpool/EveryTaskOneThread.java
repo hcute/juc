@@ -15,4 +15,5 @@ public class EveryTaskOneThread {
             System.out.println("执行了任务");
         }
     }
+    
 }

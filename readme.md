@@ -134,22 +134,308 @@
     - ThreadFactory
 
       - 新的线程由ThreadFactory创建，默认使用Executors.defaultThreadFactory()，创建出来的线程都在同一个线程组，拥有同样的NORM_PRIORITY优先级并且都不是守护线程，如果自己指定ThreadFactory,就可以改变线程名，线程组名，优先级，是否守护线程等
+      
+    - WorkQueue
+
+      - 任务简单，直接交接：SynchronousQueue，没有容量
+      - 无界队列：LinkedBlockingQueue
+      - 有界队列：ArrayBlockingQueue
 
   - 手动创建和自动创建
 
+    - 手动创建更好，可以让我们更加明确线程池的运行规则，避免资源耗尽的风险
+      - 根据不同的业务场景，自己设置线程池参数，我们的内存有多大，我们想给线程取什么名字等等
+    - 自动创建线程池带来的问题
+      - 都有可能带来oom错误，要么是队列是无界的，要么是maxPoolSize为Integer.MAX_VALUE
+
   - 线程池里的数量如何设定
+
+    - 线程池的数量应该设置为多少比较合适
+      - cpu密集型（比如加密、计算hash等）
+        - 最佳线程数为cpu核心数的1-2倍左右
+      - 耗时IO（读取数据库、文件、网络读写等）
+        - 最佳线程数一般大于cpu核心数很多倍，以JVM线程监控显示繁忙情况为依据，保证线程空闲可以衔接上，参考Brain Goetz推荐的设计算法 
+          - 线程数=CPU核心数*（1 + 平均等待时间/平均工作时间）
 
   - 停止线程的正确方法
 
+    - shutdown 
+      - 只是告诉线程池我想要停止，如果再有任务进来就不接受了，但是原来的任务会执行完
+    - isShutdown
+      - 是否收到了shutdown的信号
+    - isTerminated
+      - 是否执行完毕了
+    - awaitTermination
+      - 在一段时间内是否可以停止
+      - 在以下情况下返回true
+        - 所有任务都执行完毕
+        - 等待的时间到了
+        - 等待的过程中发生错误了
+    - shutdownNow
+      - 立即关闭线程池，但是正在执行的线程会发送interrupt ，而等待队列直接返回
+
 - 常见线程池特点和用法
+
+  - FixedThreadPool
+    - 线程池里的线程大小是固定的【最大和核心相等，keepAliveTime=0】，但是采用了**LinkedBlockingQueue**，如果线程的任务很耗时，可能造成oom
+  - CachedThreadPool
+    - 线程池的大小是0，最大为**Integer.MAX_VALUE**，**keepAliveTime=60s**，采用**SynchronousQueue**，直接交换队列，可以进行回收，但是当任务过多时，也可能造成oom
+  - ScheduledThreadPool
+    - 核心线程数用户给出，最大线程个数为**Integer.MAX_VALUE**，**keepAliveTime=0**，采用**DelayedWorkQueue**，定时或者周期性执行任务，也可能造成oom
+  - SingleThreadPool
+    - 始终只有一个线程【最大和核心相等，keepAliveTime=0】，但是采用了**LinkedBlockingQueue**，线程任务耗时的时候，也可能造成oom
+  - workStealingPool  
+    - 有子任务的任务采用此线程池
+    - 窃取
+      - 各个线程下的子线程都在自己的队列里，如果其他线程的子线程完成了本职工作，可以帮其他线程完成任务
+    - 弊端
+      - 不保证执行顺序，最好不加锁
 
 - 任务太多，怎么拒绝
 
+  - 拒绝的时机
+    - 我想停止了，但是你还提交任务，我就会拒绝
+    - 以及当最大线程和工作队列的容量都满了，就会拒绝
+  - 拒绝策略
+    - AbortPolicy：直接抛出异常
+    - DiscardPolicy：默默的把任务丢弃
+    - DiscardOldestPolicy：丢弃很老的任务
+    - CallerRunsPolicy：谁提交任务，谁来帮我执行
+      - 避免了任务丢弃
+      - 降低任务提交的速度
+
 - 钩子方法，给线程池加点料
+
+  - 每个任务执行之前和之后做些事情
+
+    - 日志和统计
+
+    - 暂停线程
+
+      ```java
+      package threadpool;
+      
+      import jdk.nashorn.internal.ir.CallNode;
+      
+      import java.util.concurrent.*;
+      import java.util.concurrent.locks.Condition;
+      import java.util.concurrent.locks.Lock;
+      import java.util.concurrent.locks.ReentrantLock;
+      
+      /**
+       * 演示每个任务执行的前后都执行钩子函数
+       */
+      public class PauseableThreadPool extends ThreadPoolExecutor {
+      
+          private boolean isPause;
+          private final Lock lcok = new ReentrantLock();
+          private Condition unpaused = lcok.newCondition();
+      
+          public PauseableThreadPool(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue) {
+              super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue);
+          }
+      
+          public PauseableThreadPool(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory) {
+              super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory);
+          }
+      
+          public PauseableThreadPool(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, RejectedExecutionHandler handler) {
+              super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, handler);
+          }
+      
+          public PauseableThreadPool(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory, RejectedExecutionHandler handler) {
+              super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
+          }
+      
+          @Override
+          protected void beforeExecute(Thread t, Runnable r) {
+              super.beforeExecute(t, r);
+              lcok.lock();
+              try {
+                  while (isPause) {
+                      unpaused.await();
+                  }
+              } catch (InterruptedException e) {
+                  e.printStackTrace();
+              } finally {
+                  lcok.unlock();
+              }
+          }
+      
+          @Override
+          protected void afterExecute(Runnable r, Throwable t) {
+              super.afterExecute(r, t);
+          }
+      
+          private void pause(){
+              lcok.lock();
+              try {
+                  isPause = true;
+              } catch (Exception e) {
+                  e.printStackTrace();
+              } finally {
+                  lcok.unlock();
+              }
+          }
+      
+          public void resume(){
+              lcok.lock();
+              try {
+                  isPause = false;
+                  unpaused.signalAll();
+              } catch (Exception e) {
+                  e.printStackTrace();
+              } finally {
+                  lcok.unlock();
+              }
+          }
+      
+          public static void main(String[] args) throws InterruptedException {
+              PauseableThreadPool pauseableThreadPool = new PauseableThreadPool(10, 20, 10l, TimeUnit.SECONDS, new LinkedBlockingDeque<>());
+      
+              Runnable r = new Runnable() {
+                  @Override
+                  public void run() {
+                      System.out.println("我被执行了");
+                      try {
+                          Thread.sleep(10);
+                      } catch (InterruptedException e) {
+                          e.printStackTrace();
+                      }
+                  }
+              };
+              for (int i = 0; i < 10000; i++) {
+                  pauseableThreadPool.execute(r);
+              }
+              Thread.sleep(1500);
+              pauseableThreadPool.pause();
+              System.out.println("线程池被暂停了");
+              Thread.sleep(1500);
+              System.out.println("线程池被恢复了");
+              pauseableThreadPool.resume();
+      
+      
+          }
+      }
+      
+      ```
+
+      
 
 - 实现原理，源码分析
 
+  - 线程池的组成部分
+
+    - 线程池管理器
+      - 创建线程池，停止线程池
+    - 工作线程
+      - 执行任务的线程
+    - 任务队列
+      - 存放不能及时处理的任务，必须是线程安全的队列，因为多个线程都需要去取任务
+    - 任务接口（Task）
+      - 线程具体执行的run方法
+
+  - 线程池、ThreadPoolExecutor、ExecutorService、Executor、Executors等类之间的关系
+
+    ![](线程池类之间的关系.png)
+
+    - Executors是一个工具类
+
+  - 线程池是如何实现线程复用的
+
+    - 相同的线程执行不同的任务
+
+  - 线程池的状态
+
+    - Running
+      - 接收新任务并处理排队任务
+    - shutdown
+      - 不接收新任务，但处理排队任务
+    - stop
+      - 不接收心任务，也不处理排队任务，并中断正在进行的任务
+    - tidying
+      - 所有的任务都已终止，workCount为0，线程会转换到TIDYING状态，并将运行teminate()钩子方法
+    - terminated
+      - terminate方法运行完成
+
 - 使用线程池的注意点
+
+  - 避免任务的堆积
+  - 线程的过度增加
+  - 排查线程泄漏：线程执行完毕，但是无法回收
+
+
+
+## ThreadLocal
+
+### 使用场景
+
+- 每个线程需要一个独享的对象（通常是工具类，典型需要使用的类有SimpleDateFormat和Random）
+  - 使用initialValue，在第一次使用get的时候就把对象初始化出来，对象的初始化时机可以由我们控制
+- 每个线程内需要保存一些全局变量（例如拦截器中获取用户信息），可以让不同的方法直接使用，避免参数传递的麻烦
+  - 使用set，对象的生成时机不由我们控制
+
+### 作用
+
+- 可以让对象在线程中隔离
+- 可以在同一个线程中的任何方法都可以获取到对象
+
+
+
+### 好处
+
+- 线程安全
+- 不需要加锁，执行效率提高
+- 更高效的利用内存，节省开销
+- 避免传参的麻烦
+
+
+
+### ThreadLocal 详解
+
+- 原理，源码解析
+
+> - Thread、ThreadLocal、ThreadLocalMap之间的关系
+>   - 每个Thread中都有一个ThreadLocalMap 成员变量，每一个ThreadLocalMap中存放多个ThreadLocal
+>
+> - initialValue方法
+>   - 该方法会返回当前线程对应的“初始值”，这是一个延时加载的方法，只有在调用了get方法的时候，才会触发
+>   - 当线程第一次调用get方法访问变量的时，将调用此方法，除非线程调用了set方法，则不会调用initialValue方法
+>   - 每个线程最多调用一次initialValue方法，如果调用了remvoe方法，则需要再调用一次initialValue方法
+>   - 如果不重写次方法，返回的是null，一般使用匿名内部类的方式重写initialValue方法
+> - set方法
+>   - 给这个线程设置一个新值
+> - get方法
+>   - 得到这个线程对应的value，如果是首次调用get，则会调用initialValue来得到这个值
+>   - **先取出当前线程的ThreadLocalMap，然后调用map.getEntry方法，把本地ThreadLocal的引用传入，取出map中属于ThreadLocal的Value**
+> - remove方法
+>   - 删除线程保存的值
+> - **Thread类中的ThreadLocalMap 会被以下方法初始化**
+>   - ThreadLocal的set方法
+>   - ThreadLocal的setInitialValue方法
+
+
+
+-  ThreadLocal.ThreadLocalMap
+  - key为ThreadLocal
+  - value为自己存储的对象
+  - hash冲突，java8 会变成链表，大于8 变成红黑树，但是ThreadLocalMap不是这种方式
+- 两种使用场景的相同
+  - 最后都是调用ThreadLocalMap色map.set()方法设置ThreadLocal和value
+  - 只是入口不同，一个是set一个是initialValue
+
+### ThreadLocal注意点
+
+- 内存泄漏
+  - 某个对象不再使用了，但是占用的内存却不能被回收
+  - 发生的可能性
+    - ThreadLocalMap的Entry出初始化key的初始化调用了WeakReference进行初始化，使用了弱引用，看到弱引用垃圾回收肯定会回收，但是value是强饮用
+      - 如果使用了线程池，线程不会被终止，那么ThreadLocalMap就一直存在，但是key是弱引用，value是强引用，导致key 被回收，value没有被回收，此时就存在大量无用的value值
+      - 但是jdk在set，remove，rehash方法中会扫描key为null的Entry，并把value设置为null，这样value也就可以被回收了，所以我们需要调用这些方法
+  - **如何避免【阿里规约】**
+    - 使用完了ThreadLocal，就需要调用remove方法
+- 空指针异常
+  - 
 
 
 
