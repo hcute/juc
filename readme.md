@@ -1,4 +1,4 @@
-# J.U.C 并发工具包
+#   J.U.C 并发工具包
 
 ## 并发工具类分类
 
@@ -484,31 +484,282 @@
 
 
 
-### 乐观锁和悲观锁
+#### 乐观锁和悲观锁
+
+**从线程要不要锁住同步资源来分类，乐观锁又称之为非互斥同步锁，悲观锁又称之为互斥同步锁**
+
+- 为什么会诞生非互斥同步锁 - 互斥同步锁的劣势
+
+  - 互斥同步锁【synchronized和Lock相关】
+    - 阻塞和唤醒带来的性能的问题
+    - 永久阻塞：如果持有锁的线程永久阻塞，比如遇到了死循环，死锁等活跃性问题，那么等待同一把锁的线程，也将永远得不到执行
+    - 优先级反转，阻塞优先级比较高，但是拥有锁的线程优先级比较低，此时拥有锁的线程如果不释放锁，那么等锁的线程的优先级没有意义
+
+- 什么是乐观锁和悲观锁
+
+  - 悲观锁：操作对象之前总是先锁住操作的对象不让别的线程来操作该对象
+    - synchronized和Lock相关
+  - 乐观锁：
+    - 认为自己处理对象的时候其他线程不会来干扰，所以不会锁住被操作的对象
+    - 更新的时候，去比对我修改的期间数据有没有被其他人修改，如果没被修改过，就说明只有自己在操作，那么就正常的修改数据
+    - 如果数据和我一开始拿到的不一样了，我就认为有人在修改数据，我就放弃修改，采取报错和重试的策略
+    - 一般都是利用CAS算法来实现的
+    - 典型例子：原子类和并发容器等
+
+- 典型的例子
+
+  - 乐观锁
+    - 原子类和并发容器
+    - git 版本管理器push的时候
+    - update set num = 2,version = version + 1 where version = 1 and id =5;
+  - 悲观锁
+    - synchronized和Lock
+    - select for update 就是悲观锁
+
+- 开销对比
+
+  - 悲观锁的开销要高于乐观锁，但是特点是一劳永逸，临界区持锁时间就越来越差，也不会对互斥锁的开销产生影响
+  - 乐观锁一开始的开销比悲观小，但是如果自旋时间很长或者不停重试，那么消耗的资源也就随之增多
+
+- 两种锁的使用场景
+
+  - 悲观锁：适用于并发写入很多的情况，适用于临界区持锁时间比较长的情况，可以避免大量的无用自旋等待等消耗
+    - 临界区有IO操作
+    - 临界区代码复杂或者循环量很大
+    - 临界区竞争非常激烈
+  - 乐观锁：适合并发写入少，大部分是读取的场景，不加锁能让读取大幅度的提高性能
+
+  
+
+#### 可重入锁和非可重入锁【ReentrantLock 】
+
+**同一个线程是否可以重复获取同一把锁**
+
+- 什么叫可重入 
+  - 同一个线程下可以多次获取同一把锁
+- 好处
+  - 避免死锁
+  - 提升了封装性 
+- 非不可重入
+  - ThreadPoolExecutor的Worker类
+- AQS的应用
+- ReentrantLock的其他常用方法
+  - isHeldByCurrentThread 查看锁是否被当前线程持有
+  - getQueueLength 返回当前正在等待这把锁的队列有多长
 
 
 
-### 可重入锁和非可重入锁
+#### 公平锁和非公平锁
+
+**多线程竞争的时候是否需要排队**
+
+- 什么是公平什么是非公平
+
+  - 按照线程的请求的顺序，来分配锁，非公平指的是，不完全按照请求的顺序，在一定情况下可以插队
+  - 非公平锁也是不提倡插队行为的，这里的非公平，指的是“在合适的时机”插队，而不是盲目插队
+  - 什么是合适时机
+    - 买火车票插队 
+      - 以前是线下排队，比如排在我前面的还有一个人，买好票走了，轮到我了，我熬夜后有点懵一时没反应过来，这个时候有个人来问了下火车几点开，但是他没有买票就走了，其实没有影响我买到票
+
+- 为什么有非公平的存在
+
+  - 避免线程在阻塞切换到唤醒的过程的得到利用，比如A线程拿到锁，B线程在阻塞状态等待锁，此时A释放了锁，又一个C线程在执行过程中需要获取锁，B在醒来过程中准备抢锁，这个时候是准许C先抢到锁的，达到双赢
+
+- ReentrantLock的公平情况
+
+  - 默认是**非公平锁**，在创建的时候传入true 就是公平锁
+  - 按照排队队列来分配锁
+
+- ReentrantLock的非公平情况
+
+  - 排队的队列中的线程，和还没有进入到队列中的线程同时抢锁，此时会先给没有进入队列线程分配锁，此时就是公平锁
+
+- 代码案例，演示公平和非公平
+
+  ```java
+  package lock.reentrantlock;
+  
+  import java.util.Random;
+  import java.util.concurrent.locks.Lock;
+  import java.util.concurrent.locks.ReentrantLock;
+  
+  /**
+   * 演示公平和非公平锁
+   */
+  public class FairLock {
+  
+  
+  
+      public static void main(String[] args) {
+          PrintQueue printQueue = new PrintQueue();
+          Thread thread[] = new Thread[10];
+          for (int i = 0; i < 10; i++) {
+              thread[i] = new Thread(new Job(printQueue));
+          }
+  
+          for (int i = 0; i < 10; i++) {
+              thread[i].start();
+              try {
+                  Thread.sleep(100);
+              } catch (InterruptedException e) {
+                  e.printStackTrace();
+              }
+          }
+      }
+  }
+  
+  class Job implements Runnable {
+      private PrintQueue printQueue;
+  
+      public Job(PrintQueue printQueue) {
+          this.printQueue = printQueue;
+      }
+  
+      @Override
+      public void run() {
+          System.out.println(Thread.currentThread().getName() + "开始打印");
+          printQueue.printJob(new Object());
+          System.out.println(Thread.currentThread().getName() + "打印完毕");
+      }
+  }
+  
+  class PrintQueue{
+  //    private Lock queueLock = new ReentrantLock(true); // 公平
+  
+      private Lock queueLock = new ReentrantLock(false); // 非公平
+  
+      public void printJob(Object document) {
+          queueLock.lock();
+          try {
+              int duration =  new Random().nextInt(10) + 1;
+              System.out.println(Thread.currentThread().getName() + "正在打印，需要" + duration + "秒");
+              Thread.sleep(duration*1000);
+          } catch (InterruptedException e) {
+              e.printStackTrace();
+          } finally {
+              queueLock.unlock();
+          }
+          queueLock.lock();
+          try {
+              int duration =  new Random().nextInt(10) + 1;
+              System.out.println(Thread.currentThread().getName() + "正在打印，需要" + duration + "秒");
+              Thread.sleep(duration*1000);
+          } catch (InterruptedException e) {
+              e.printStackTrace();
+          } finally {
+              queueLock.unlock();
+          }
+      }
+  }
+  
+  ```
+
+  
+
+- 特例
+
+  - trylock方法，不遵守设定的公平原则，当有线程只从trylock的时候，一旦有线程释放了锁，那么这个正在trylock的线程就能获取到锁，即使它之前已经有其他线程在排队等锁
+
+- 公平和非公平的优缺点
+
+  - 公平锁
+    - 优势：各个线程公平平等，每个线程在等待一段时间后，总有执行的机会
+    - 劣势：更慢，吞吐量小
+  - 非公平锁
+    - 优势：更快，吞吐量更大
+    - 劣势：有可能产生线程饥饿，也就是某个线程长时间内始终得不到执行
+
+- 源码是如何实现
+
+  - 公平锁会判断队列
 
 
 
-### 公平锁和非公平锁
+#### 共享锁和排他锁
+
+**从多线程能否共享同一把锁**
+
+- 排它锁 synchronized
+  - 又称独占锁、独享锁
+- 共享锁
+  - 读锁，获取到共享锁之后，可以查看但是无法修改和删除数据，其他线程此时也可以获取到共享锁，可以查看但是无法修改数据
+- 典型实例
+  - ReentrantReadWriteLock中的读锁是共享锁，写锁是排它锁
+- 读写锁的作用 多读一写
+  - 只是读的话没有必要加ReentrantLock，只用加锁
+  - 多个线程同时申请读锁，可以申请到
+  - 如果一个线程占用了读锁，此时其他线程如果要申请写锁，则申请写锁的线程会一直等待释放读锁
+  - 如果一个线程占用了写锁，其他线程想要获取读锁和写锁都获取不到 
+- 读锁和写锁的交互过程
+  - 选择规则
+    - 选择队列中的什么线程获取锁
+  - 读线程插队 不准读锁插队
+    - 公平的 ReentrantReadWriteLock 不准读锁插队
+    - 非公平 ReentrantReadWriteLock 也不准读锁插队，写锁可以随时插队
+      - 场景：2和4线程在读，3想写进入等待，5过来想读
+        - 如果准许读插队：后面还来很多读的线程，那么写锁永远都获取不到，造成了**饥饿**
+        - 如果不准许插队：进入队列队列
+      - 读锁仅在等待队列头节点不是想获取写锁的线程的时候可以插队
+  - 升降级
+    - 支持锁的降级，不支持升级
+      - 持有写锁获取读锁，释放写锁 可以
+      - 持有读锁升级到写锁 不可以
+    - 为什么不支持锁的升级
+      - 会造成死锁，只有读锁的释放了，才可以升级为写锁
+- 使用场景
+  - 读多写少的场景
 
 
 
-### 共享锁和排他锁
+#### 自旋锁和阻塞锁
 
+**等锁的过程，如果等锁的过程一直尝试再去获取锁，就是自旋锁，如果等锁的时候阻塞，就是阻塞锁**
 
+- 什么是自旋
+  - 不使用自旋，那么就只能阻塞和等待来处理线程之间的协调，阻塞或唤醒一个java线程需要操作系统切换cpu状态来完成，这种状态的切换需要耗费处理器时间
+  - 如果同步代码内容很简单，状态切换消耗的时间有可能比用户代码执行时间还要长，就不需要阻塞或等待
+  - 为了应对资源同步时间短的情况，我们就可以让后面那个请求锁的线程不放弃cpu的执行时间，看看持有锁的线程是否很快就会释放锁
+  - 为了当前等待锁的线程稍微等下，需要当前线程自旋，当持有锁的资源放弃了锁，那么就不需要阻塞直接获取锁，从而避免了切换线程的开销，这就是自旋
+- 自旋的缺点
+  - 如果锁的占用时间过长，那么自旋的线程只会白浪费处理器资源，自旋过程中一直消耗cpu，虽然开始的开销低，但是随着自旋时间的增长，开销也会增大
+- 原理和源码分析
+  - atomic 用到了自旋锁，实现原理里是CAS，AtomicInteger中调用了unsafe进行自增操作的源码中的do-while循环就是一个自旋操作，如果修改过程中遇到其他线程竞争导致中没有修改成功，就在while里死循环，直至修改成功
+- 使用场景
+  - 自旋锁一般用于多核的服务器，在并发度不是特别高的情况下，比阻塞所的效率高
+  - 使用于临界区比较小的情况
 
-### 自旋锁和阻塞锁
+#### 可中断锁和非可中断锁
 
-
-
-### 可中断锁
-
-
+- 可中断锁
+  - lock是可中断的，因为trylock(time) 和lcokInterruptibly都能响应中断，而synchronized是不可中断的
+  - 可中断就是，如果线程A正在执行锁中的代码，另外一个线程B正在等待获取锁，可能由于长时间等待，线程B不想等了，就先处理其他事情，我们可以中断它，这就是可中断锁
 
 ### 锁优化
+
+- jvm优化
+
+  - 自旋锁和自适应
+    - 尝试10-20次之后可能就会转换为阻塞锁，可以在jvm参数重配置自旋的次数，这就是自适应
+  - 锁消除
+    - 如果所有的变量都是局部的，即使你加锁了jvm也会消除锁
+  - 锁粗话
+    - 如果你在太多的代码片段都加锁了，jvm发现可以合并就会合并锁
+
+- 自己优化
+
+  - 缩小同步代码块
+
+  - 尽量不要锁住方法
+
+  - 减少锁的请求次数
+
+  - 避免人为制造热点
+
+  - 锁中尽量不要包含锁 
+
+  - 选择合适的锁和合适的工具类
+
+    
 
 
 
