@@ -1,4 +1,4 @@
-#   J.U.C 并发工具包
+#    J.U.C 并发工具包
 
 ## 并发工具类分类
 
@@ -748,22 +748,266 @@
 - 自己优化
 
   - 缩小同步代码块
-
-  - 尽量不要锁住方法
-
+- 尽量不要锁住方法
   - 减少锁的请求次数
-
-  - 避免人为制造热点
-
+- 避免人为制造热点
   - 锁中尽量不要包含锁 
-
-  - 选择合适的锁和合适的工具类
-
-    
+- 选择合适的锁和合适的工具类
 
 
 
+## 原子类
 
+### 什么是原子量类，有什么作用
+
+- 不可分割
+- 一个操作是不可中断的，即使是多线程的情况下也可以保证
+- java.util.concurrent.atomic包下
+- 原子类的作用和锁类似，是为了保证并发情况下的线程安全，不过原子类相比于锁，有一定的优势
+  - 粒度更细
+  - 性能较高，在高度竞争的情况下不如锁
+
+### 6类原子类
+
+| Atomic* 基本原子类型              | AtomicInteger<br />AtomicLong<br />AtomicBoolean             |
+| --------------------------------- | ------------------------------------------------------------ |
+| Atomic*Array数组类型原子类        | AtomicIntegerArray<br />AtomicLongArray<br />AtomicReferenceArray |
+| Atomic*Refrence引用类型原子类     | AtomicRefrence<br />AtomicStampedReference<br />AtomicMarkableReference |
+| Atomic*FieldUpdater升级类型原子类 | AtomicIntegerFieldUpdater<br />AtomicLongFieldUpdater<br />AtomicReferenceFieldUpdater |
+| Adder累加器                       | LongAdder、DoubberAdder                                      |
+| Accumulator累加器                 | LongAccumulator、DubberAccumulator                           |
+
+
+
+#### Atomic*基本类型原子类 ，AtomicInteger
+
+- 常用方法
+
+  >public final int get() // 获取当前值
+  >
+  >public final int getAndSet(int newValue) // 获取当前值并设置新值
+  >
+  >public final int getAndIncrement() // 获取当前的值，并自增
+  >
+  >public final int getAndDecrement() // 获取当前值，并自减
+  >
+  >public final int getAndAdd(int delta) // 获取当前值，并加上指定的值
+  >
+  >boolean compareAndSet(int expect,int update) // 如果当前的数值等于预期值，则以原子的方式将该值设置为输入值（update）
+
+
+
+#### Atomic*Array数组类型原子类
+
+```java
+package atomic;
+
+import java.util.concurrent.atomic.AtomicIntegerArray;
+
+public class AtomicArrayDemo {
+
+    public static void main(String[] args) throws InterruptedException {
+        AtomicIntegerArray atomicIntegerArray = new AtomicIntegerArray(1000);
+
+        Decrementer decrementer = new Decrementer(atomicIntegerArray);
+        Incrementer incrementer = new Incrementer(atomicIntegerArray);
+
+        Thread[] threadsIncrementer = new Thread[100];
+        Thread[] threadsDecrementer = new Thread[100];
+
+        for (int i = 0; i < 100; i++) {
+            threadsIncrementer[i] = new Thread(incrementer);
+            threadsDecrementer[i] = new Thread(decrementer);
+
+            threadsDecrementer[i].start();
+            threadsIncrementer[i].start();
+
+        }
+        for (int i = 0; i < 100 ; i++) {
+            threadsDecrementer[i].join();
+            threadsIncrementer[i].join();
+        }
+
+//        Thread.sleep(10000);
+        for (int i = 0; i < atomicIntegerArray.length(); i++) {
+            if (atomicIntegerArray.get(i) != 0 ){
+                System.out.println("发现了非零值Incrementer，发生了错误");
+            }
+        }
+        System.out.println("运行结束");
+    }
+}
+
+
+class Decrementer implements Runnable{
+    private AtomicIntegerArray array;
+
+    public Decrementer(AtomicIntegerArray array) {
+        this.array = array;
+    }
+
+    @Override
+    public void run() {
+        for (int i = 0; i < array.length(); i++) {
+            array.getAndDecrement(i);
+        }
+    }
+}
+
+class Incrementer implements Runnable{
+    private AtomicIntegerArray array;
+
+    public Incrementer(AtomicIntegerArray array) {
+        this.array = array;
+    }
+
+    @Override
+    public void run() {
+        for (int i = 0; i < array.length(); i++) {
+            array.getAndIncrement(i);
+        }
+    }
+}
+
+```
+
+​	
+
+#### Atomic*Reference引用类型原子类
+
+- 可以用来实现自己的自旋锁
+
+  ```java
+  package lock.spinlock;
+  
+  import java.util.concurrent.atomic.AtomicReference;
+  
+  public class SpinLock {
+  
+      private AtomicReference<Thread> sign = new AtomicReference();
+  
+  
+      public void lock(){
+          Thread current = Thread.currentThread();
+          while (!sign.compareAndSet(null,current)) {
+              System.out.println("获取自旋锁失败，正在尝试");
+          }
+      }
+  
+      public void unlock(){
+          Thread currentThread = Thread.currentThread();
+          sign.compareAndSet(currentThread,null);
+      }
+  
+      public static void main(String[] args) {
+          SpinLock spinLock = new SpinLock();
+          Runnable runnable = new Runnable() {
+              @Override
+              public void run() {
+                  System.out.println(Thread.currentThread().getName() + "开始尝试获取自旋锁");
+                  spinLock.lock();
+                  System.out.println(Thread.currentThread().getName() + "获取到了自旋锁");
+                  try {
+                      Thread.sleep(300);
+                  } catch (InterruptedException e) {
+                      e.printStackTrace();
+                  } finally {
+                      spinLock.unlock();
+                      System.out.println(Thread.currentThread().getName() + "释放了自旋锁");
+  
+                  }
+              }
+          };
+          new Thread(runnable).start();
+          new Thread(runnable).start();
+      }
+  }
+  
+  ```
+
+  
+
+#### 把普通变量升级为原子类，用AtomicIntegerFieldUpater升级原有变量
+
+- 使用场景
+  - 大部分情况你不是原子的，只是小部分的时候需要原子
+- 使用注意点
+  - 可见范围，private修饰的变量无法使用
+  - 不可用于static修饰的变量
+
+#### Adder累加器
+
+- 高并发下LongAdder比AtomicLong效率高，不过本质是空间换时间
+
+- java8 引入的新类
+
+- 竞争激烈的时候，LongAdder把不同线程对应到不同的Cell上进行修改，降低了冲突的概率，是多段锁的原理，提高了并发
+
+- 代码演示LongAdder和AtomicLong性能的差别
+
+  - Atomic 每次加都要flush和reflush
+    - 当在每个线程修改的时候要立刻刷新到主内存，并同时刷新新值到各个线程 
+  - LongAdder的实现是不一样，每个线程有一个自己的计数器，仅用来在自己的线程内计数，不会和其他线程计数器干扰
+  -  最后计数器的汇总阶段
+    - LongAdder引入了分段累加的感念，内部有一个base变量和一个Cell数组共同参入计算
+      - base变量：竞争不激烈，直接累加到该变量上
+      - cell[]数组；竞争激烈，各个线程分散累加到自己的槽Cell[i]中
+
+- sum 源码
+
+  ```java
+  public long sum() {
+          Cell[] as = cells; Cell a;
+          long sum = base;
+          if (as != null) {
+              for (int i = 0; i < as.length; ++i) {
+                  if ((a = as[i]) != null)
+                      sum += a.value;
+              }
+          }
+          return sum;
+      }
+  ```
+
+- 使用场景
+
+  - 统计求和
+
+#### Accumulator 累加器
+
+- 代码示例
+
+  ```java
+  package atomic;
+  
+  import java.util.concurrent.ExecutorService;
+  import java.util.concurrent.Executors;
+  import java.util.concurrent.atomic.LongAccumulator;
+  import java.util.stream.IntStream;
+  
+  /**
+   * 演示LongAccumulator的用法
+   */
+  public class LongAccumulatorDemo {
+      public static void main(String[] args) {
+          LongAccumulator longAccumulator = new LongAccumulator((x, y) -> x + y, 0);
+          ExecutorService executorService = Executors.newFixedThreadPool(8);
+          IntStream.range(1,10).forEach(i -> executorService.submit(() -> {longAccumulator.accumulate(i);}));
+          executorService.shutdown();
+          while (!executorService.isTerminated()) {
+  
+          }
+          System.out.println(longAccumulator.getThenReset());
+      }
+  }
+  
+  ```
+
+  
+
+- 使用场景
+  
+  - 大并发下的大量计算
 
 
 
@@ -830,11 +1074,217 @@
 
 - 案例演示
 
+  - 两个线程竞争，其中一个失败
+
+    ```java
+    package cas;
+    
+    /**
+     * 模拟cas操作，等价代码
+     */
+    public class TwoThreadCompetition implements Runnable{
+    
+        private volatile int value;
+    
+    
+        /**
+         * 相当于CAS的指令
+         * @param expectedValue
+         * @param newValue
+         * @return
+         */
+        public synchronized int compareAndSwap(int expectedValue,int newValue){
+            int oldValue = value;
+            if (oldValue == expectedValue){
+                value = newValue;
+            }
+            return value;
+        }
+    
+        public static void main(String[] args) throws InterruptedException {
+            TwoThreadCompetition r = new TwoThreadCompetition();
+            r.value = 0;
+            Thread t1 = new Thread(r);
+            Thread t2 = new Thread(r);
+            t1.start();
+            t2.start();
+            t1.join();
+            t2.join();
+            System.out.println(r.value);
+        }
+    
+        @Override
+        public void run() {
+            compareAndSwap(0,1);
+        }
+    }
+    
+    ```
+
+    
+
 - 应用场景
+
+  - 乐观锁
+  - 数据库版本号修改
+  - 并发容器
+  - 原子类
 
 - 以AtomicInteger为例，分析java中是如何利用cas实现原子操作
 
+  - 会加载Unsafe工具，用来直接操作内存数据
+
+  - Unsafe来实现底层操作
+
+  - 用volatile修饰value字段，保证可见性
+
+  - getAndAddInt
+
+    - getAndAddInt源码
+
+      ```java
+       public final int getAndAdd(int delta) {
+         return unsafe.getAndAddInt(this, valueOffset, delta);
+       }
+      ```
+
+    - Unsafe类
+
+      - Unsafe类是Cas算法的核心，java无法直接访问底层操作系统，而是通过本地方法来访问，不过尽管如此，JVM还是开了一个后门，jdk中有一个类Unsafe，它提供了硬件级别的原子操作
+
+    - AtomicInteger加载Unsafe工具，用来直接操作内存数据
+
+      ```java
+      public class AtomicInteger extends Number implements java.io.Serializable {
+          private static final long serialVersionUID = 6214790243416807050L;
+      
+          // setup to use Unsafe.compareAndSwapInt for updates
+          private static final Unsafe unsafe = Unsafe.getUnsafe();
+          private static final long valueOffset;
+      
+          static {
+              try {
+                  valueOffset = unsafe.objectFieldOffset
+                      (AtomicInteger.class.getDeclaredField("value"));
+              } catch (Exception ex) { throw new Error(ex); }
+          }
+      
+          private volatile int value;
+        
+       		public final int get() {return value;} 
+      }
+      ```
+
+      在AtomicInteger数据定义的部分，我们还获取了unsafe实例，并且定义了valueOffset，再看到static代码块，staic代码块会最先被加载，这个时候，我们调用了unsafe的objectFieldOffset从Atomic类文件中获取到value的偏移量，那么valueOffset就是九路value的偏移量的
+
+      valueOffset表示的是变量在内存中的偏移地址，因为Unsafe就是根据内存偏移地址获取数据的原地址，这样我们就能通过unsafe来实现CAS了，value是用volatile修饰的，保证了多个线程之间看到的value值是同一份
+
+    - unsafe的getAndAddInt方法实现
+
+      ```java
+      public final int getAndAddInt(Object var1, long var2, int var4) {
+              int var5;
+        do {
+          var5 = this.getIntVolatile(var1, var2);
+        } while(!this.compareAndSwapInt(var1, var2, var5, var5 + var4));
+      
+        return var5;
+      }
+      ```
+
+      我们看到var5获取的是什么，通过调用unsafe的getIntVolatile(var1,var2)，这是个native方法，其实就是获取var1中，var2偏移量处的值，var1就是AtomicInteger，var2就是我们提到的valueOffset，这样我们就获取到了现在valueOffset处的值了
+
+      重点是，compareAndSwapInt(var1, var2, var5, var5 + var4)其实换成compareAndSwapInt(obj,offset,expect,update)比较清楚，意思是如果obj内的value和expect相等，就证明没有其他线程修改过这个变量，那么久更新它为update，如果这一步cas没有成功，那就采用自旋的方式继续进行cas操作
+
+    - unsafe的getAndAddInt方法分析：自旋 + CAS，在这个过程中，通过compareAndSwapInt比较并更新value值，如果更新失败，重新获取，然后再次更新，直至更新成功
+
 - 缺点
+
+  - ABA问题，可以采用版本号来解决
+  - 自旋时间过长
+
+
+
+## 以不变应万变
+
+### 不变性
+
+- 如果对象在创建后，状态就不能被修改，那么它就是不可变得
+  - Person对象，age和name都不能再变
+- 具有不变性的对象一定是线程安全的，我们可以不采取任何措施就可以保证线程安全
+
+### final作用
+
+- 早期
+  - 性能提高
+    - 会将final修饰的方法转为内嵌调用，如果一个方法调用final方法，会把final方法移动到非final方法
+- 现在
+  - 修饰类不能被继承
+  - 修饰方法不能被重写
+  - 修饰变量不能被修改
+  - 天生的线程安全
+
+### 3种用法
+
+- 修饰变量
+
+  - 值不能被修改，如果修饰的对象，只是表示对象的引用不能变，但是里面的变量是可以变得
+
+    ```java
+    final Person p = new Person();
+    p = new Person(); // 这个是不准许的
+    ```
+
+  - 对于3中类型的变量的区别【类的成员变量，类的变量（static修饰的成员变量），方法中的变量】
+
+    - 赋值时机
+      - 类的成员变量，必须要在下面一种情况下赋值
+        - 申明的时候赋值
+        - 构造函数中赋值
+        - 初始化代码中赋值
+      - 类变量
+        - 直接赋值
+        - static初始化代码块
+      - 方法中的变量
+        - 在使用前必须赋值
+    - 为什么规定赋值时机
+      - 违背了final的原则，申明了就只能有一个值
+
+- 修饰方法
+
+  - 不准许修改构造方法
+  - 不能被重写
+  - 补充：static修饰方法也不能被子类也无法重写，但是可以写成一模一样的方法，不是重写，而是属于类的方法
+
+- 修饰类
+
+  - 不能被继承
+
+### 不变性和final的注意点
+
+- final的注意点
+  - 修饰对象对象引用不可变，而本身的属性是可变的
+  - final的使用原则，知道某个对象不可变就应该定义为final，养成良好的编程习惯
+
+### 不变性和final的关系
+
+- 不变性并不意味着被final修饰就不可变
+  - 对于基本数据类型是不可变的
+  - 但是引用类型，只是对象的引用不可变，要保证对象不可变，里面的属性需要被定义为final
+- 如何利用final实现引用类型的不可变
+  - 把所有的属性都声明为final修饰，但是这种说法存在问题，如果对象里的属性又是对象，这样就存在问题了
+  - 正确的是实现方式
+    - 对象创建后，其状态就不能发生修改
+    - 所有的属性都是final修饰的
+    - 对象创建过程中没有发生逸出
+
+### 栈封闭
+
+- 局部变量是栈封闭的
+- 面试问题
+  - 
+
+
 
 ## AQS原理
 
