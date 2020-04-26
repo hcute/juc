@@ -1281,8 +1281,138 @@ class Incrementer implements Runnable{
 ### 栈封闭
 
 - 局部变量是栈封闭的
+
 - 面试问题
-  - 
+
+  - 真假美猴王
+
+    ```java
+    package iimmutable;
+    
+    public class WuKong {
+        public static void main(String[] args) {
+            String a = "wukong2";
+            final String b = "wukong";
+            String c = "wukong";
+            String d = b + 2;
+            String e = c + 2;
+            System.out.println(a == d);
+            System.out.println(a == e);
+    
+        }
+    }
+    
+    ```
+
+    
+
+    ```java
+    package iimmutable;
+    
+    public class WiuKong2 {
+    
+        public static void main(String[] args) {
+            String a = "wukong2";
+            // 编译器无法优化
+            final String b = getDaShiXiong();
+            final String d = "wukong";
+            String c = b + 2;
+            String e = d + 2;
+            System.out.println(a == c);
+            System.out.println(a == e);
+        }
+    
+        private static String getDaShiXiong() {
+            return "wuKong";
+        }
+    }
+    
+    ```
+
+    
+
+## 并发容器
+
+  ConcurrentHashMap、CopyOnWriteArrayList、阻塞队列
+
+### 并发容器概览
+
+- **ConcurrentHashMap**：线程安全的hashmap
+- **CopyOnWriteArrayList**：线程安全的arrayList
+- **BlockingQueue**：阻塞队列
+- ConcurrentLinkedQueue：高效的非阻塞并发队列，使用链表实现，一个线程安全的LinkedList
+- ConcurrentSkipListMap：是一个map，使用跳表的数据结构进行快速查找
+
+### 趣说集合类的历史
+
+- Vector和Hashtable：线程安全，但性能不好，所有的方法都是synchronized修饰的，导致性能不好
+- HashMap和ArrayList是线程不安全的，但是可以用Collections.synchronizedList(new ArrayList<E>())和Collections.synchronizedMap(new HashMap<K,V>())使之变成线程安全
+  - 使用同步代码块，性能也没有提高多少
+- ConcurrentHashMap和CopyOnWriteArrayList取代了前面两个集合，绝大多数情况下是优于上面两个集合类的，但是CopyOnWriteArrayList适合读多写少的场景
+
+### ConcurrentHashMap
+
+- Map简介
+
+  - Map接口的实现：
+
+    **要求map中的key是不可变对象，hash值不能变**
+
+    - HashMap
+      - 根据键的hashcode来存储，准许key为null，值也可以为null，线程不安全的
+    - Hashtable
+      - 线程安全的，不建议使用
+    - LinkedHashMap
+      - 保存了记录的插入顺序，遍历是有序
+    - TreeMap
+      - 排序的map
+
+  - 常用方法
+
+    - 
+
+  - 类图
+
+    ![](map集合的类图.png)
+
+- 为什么需要ConcurrentHashMap
+
+  - 为什么不用Collections.synchronizedMap()
+  - 为什么HashMap是线程不安全的
+    - 同时put碰撞导致数据丢失
+    - 同时put扩容导致数据丢失
+    - 死循环造成的cpu 100%
+      - 主要存在于java7中
+        - 调试技巧：修改jdk版本
+        - 调试技巧：多线程配合，模拟真实场景
+      - 代码演示
+
+- HashMap进行分析
+
+- Jdk1.7 ConcurrentHashMap的实现和源码分析
+
+- jdk1.8 ConcurrentHashMap的实现和源码分析
+
+- 对比jdk1.7和jdk1.8的优缺点，为什么要把1.7的结构改为1.8的结构
+
+- 组合操作：ConcurrentHashMap也不是线程安全的？
+
+- 实际案例分享
+
+
+
+### CopyOnWriteArrayList
+
+
+
+### 并发队列
+
+- 阻塞队列
+- 非阻塞队列
+
+
+
+### 总结
 
 
 

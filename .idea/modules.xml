@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/hashmapendlessloop/hashmapendlessloop.iml" filepath="$PROJECT_DIR$/hashmapendlessloop/hashmapendlessloop.iml" />
       <module fileurl="file://$PROJECT_DIR$/juc.iml" filepath="$PROJECT_DIR$/juc.iml" />
     </modules>
   </component>
