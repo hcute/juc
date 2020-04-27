@@ -1385,25 +1385,216 @@ class Incrementer implements Runnable{
       - 主要存在于java7中
         - 调试技巧：修改jdk版本
         - 调试技巧：多线程配合，模拟真实场景
+        
       - 代码演示
+      
+        - 如果被问到，可以和面试官稍微说下
+      
+          ```java
+          import java.util.HashMap;
+          
+          /**
+           * 演示HashMap在多线程情况下造成的死循环问题
+           * 详细说明地址：https://coolshell.cn/articles/9606.html
+           * 概念性的结论：多线程扩容的时候可能会导致循环链表，导致cpu 100%占用
+           */
+          public class HashMapEndlessLoop {
+              private static HashMap<Integer,String> map = new HashMap<Integer,String>(2,1.5f);
+          
+              public static void main(String[] args) {
+                  map.put(5,"C");
+                  map.put(7,"B");
+                  map.put(3,"A");
+                  new Thread(new Runnable() {
+                      @Override
+                      public void run() {
+                          map.put(15,"D");
+                          System.out.println(map);
+                      }
+                  },"Thread-1").start();
+          
+                  new Thread(new Runnable() {
+                      @Override
+                      public void run() {
+                          map.put(1,"E");
+                          System.out.println(map);
+                      }
+                  },"Thread-2").start();
+              }
+          
+          }
+          
+          ```
+      
+          
 
 - HashMap进行分析
 
-- Jdk1.7 ConcurrentHashMap的实现和源码分析
+  - hashmap关于并发的特点
 
-- jdk1.8 ConcurrentHashMap的实现和源码分析
+    - 非线程安全
+    - 迭代时不准许修改内容
+    - 只读的并发是安全的
+    - 可以用Collections.synchronizedMap()的方式保证线程安全，但是效率会比较低
+
+  - Jdk1.7 ConcurrentHashMap的实现和源码分析
+
+    - 数组 + 链表的形式
+
+    ![](jdk1.7hashmap结构.png) 
+
+  - jdk1.8 ConcurrentHashMap的实现和源码分析
+
+    - 数组 + 链表 + 红黑树 【hash值重复的大于8之后就会变成红黑树】
+
+      ![](jdk1.8hashmap结构.png)
+
+    - 红黑树
+
+      - 只有红色和黑色，根节点是黑色，是一个二叉查找树，具有平衡性
+      - 红色节点不能连续，红色节点的孩子和父亲都不能是红色节点
+      - 从任一节点到其子树中每个叶子节点的路径都包含相同数量的黑色节点
+      - 所有的叶子节点都是黑色的
+
+- ConcurrentHashMap 在1.7和1.8中的结构分析
+
+  - jdk1.7 特点
+
+    - 最外层加入了segment，每个segment的底层数据结构与HashMap类似，任然是数组和链表组成的拉链法
+    - 每个segment独立上ReentrantLock锁，每个segment之间互不影响，提高了并发效率
+    - 默认ConcurrentHashMap默认有16个Segments，所以最多可以同时支持16个线程并发（操作分别分布在不同的Segment上）。这个默认值可以在初始化的时候设置为其他值，但是一旦初始化以后，是不可以扩容的
+
+  - Jdk1.7结构图
+
+    - ![](concurrenthashmap在jdk1.7中的结构.png)
+    - ![](concurrentHashMap在1.7中的结构.png)
+
+  - jdk1.8简介
+
+    - 采用了cas + synchronized 的方式保证并发安全，而且不是segment，而是Node的方式
+
+  - jdk1.8的结构
+
+    - ![](jdk1.8的ConcurrentHashMap的结构.png)
+
+  - jdk1.8的常用方法
+
+    - put方法不准许null key和null value
+
+      > putVal流程
+      >
+      > - 判断key和value不为空
+      > - 计算hash值
+      > - 根据对应位置节点的类型，来赋值，或者helpTransfer，或者增长链表，或者给红黑树增加节点
+      > - 检查满足阀值就 “红黑化”
+      > - 返回oldValue
+
+    - get
+
+      > get的流程
+      >
+      > - 计算hash值
+      > - 找到对应的位置，根据情况进行
+      > - 直接取值
+      > - 红黑树查找值
+      > - 遍历链表取值
+      > - 返回查找结果
 
 - 对比jdk1.7和jdk1.8的优缺点，为什么要把1.7的结构改为1.8的结构
 
+  - 数据结构
+  - hahs碰撞
+  - 并发原理
+    - 7 中 使用segment保证
+    - 8 中 使用cas + synchronized
+  - 查询复杂度
+    - 7 是 o(n) 8 是o(logn) 
+    - 为什么是8 被转成红黑树
+      - 链表的结构占用的内存空间更小
+      - hash冲突达到8 是很难得 千万分之六，如果真是达到了8 说明需要改进hash算法
+
 - 组合操作：ConcurrentHashMap也不是线程安全的？
 
+  - 因为错误的使用
+
+    ```java
+    package collections.concurrenthashmap;
+    
+    import java.util.concurrent.ConcurrentHashMap;
+    
+    /**
+     * 组合操作并不保证线程安全
+     */
+    public class OptionsNotSafe implements Runnable{
+    
+        private static  ConcurrentHashMap<String,Integer> scores = new ConcurrentHashMap<String,Integer>();
+    
+    
+        public static void main(String[] args) throws InterruptedException {
+            scores.put("小明",0);
+            OptionsNotSafe r = new OptionsNotSafe();
+            Thread t1 = new Thread(r);
+            Thread t2 = new Thread(r);
+            t1.start();
+            t2.start();
+            t1.join();
+            t2.join();
+            System.out.println(scores);
+        }
+    
+        @Override
+        public void run() {
+            for (int i = 0; i < 1000; i++) {
+                // get和put组合操作不是线程安全的,如果使用synchronized有不建议
+    //            synchronized (OptionsNotSafe.class) {
+    //                Integer score = scores.get("小明");
+    //                Integer newScore = score + 1;
+    //                scores.put("小明",newScore);
+    //            }
+    
+                // 可以用replace方法替代
+                while (true) {
+                    Integer score = scores.get("小明");
+                    Integer newScore = score + 1;
+                    boolean b = scores.replace("小明", score, newScore);
+                    if (b) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    
+    ```
+
+  - 其他替代组合方式
+
+    - replace
+    - putIfAbsent
+      - 如果key有值，那么久返回值，没有值put值
+
 - 实际案例分享
+
+  - 租车系统司机出车前需要考试，乱序发放题目
 
 
 
 ### CopyOnWriteArrayList
 
-
+- 诞生的历史和原因
+  - 代替Vector和SynchronizedList
+  - Vector和SynchronizedList锁的粒度大，效率不好
+  - 还有CopyOnWriteArraySet可以替换set
+- 适用场景
+  - 读操作可以尽可能地快，而写慢一些也没关系
+    - 读多写少
+      - 黑名单、白名单：每日更新但是读取频繁
+      - 监听器：迭代操作远多于修改操作
+- 读写规则
+  - 读取不加锁，写入的时候都可以读取，只有写写才会进行同步等待
+- 实现原理
+- 缺点
+- 源码分析
 
 ### 并发队列
 
