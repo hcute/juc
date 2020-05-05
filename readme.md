@@ -1585,36 +1585,814 @@ class Incrementer implements Runnable{
   - 代替Vector和SynchronizedList
   - Vector和SynchronizedList锁的粒度大，效率不好
   - 还有CopyOnWriteArraySet可以替换set
+  
 - 适用场景
   - 读操作可以尽可能地快，而写慢一些也没关系
     - 读多写少
       - 黑名单、白名单：每日更新但是读取频繁
       - 监听器：迭代操作远多于修改操作
+  
 - 读写规则
+  
   - 读取不加锁，写入的时候都可以读取，只有写写才会进行同步等待
+  
 - 实现原理
+
+  - 修改会复制一份进行修改，然后将原来的引用指向修改后的集合
+
+  - 可以实现读写分离
+
+  - 原数据是不变的
+
+  - 迭代可能出现脏读
+
+    ```java
+    package collections.copyonwrite;
+    
+    import java.util.Iterator;
+    import java.util.concurrent.CopyOnWriteArrayList;
+    
+    public class CopyOnWriteArrayListDemo2 {
+    
+        public static void main(String[] args) {
+            CopyOnWriteArrayList<Integer> integers = new CopyOnWriteArrayList<>(new Integer[]{1, 2, 3});
+            System.out.println(integers);
+            Iterator<Integer> itr1 = integers.iterator();
+            integers.add(4);
+            System.out.println(integers);
+            Iterator<Integer> itr2 = integers.iterator();
+            itr1.forEachRemaining(System.out::println);
+            itr2.forEachRemaining(System.out::println);
+        }
+    }
+    
+    ```
+
+    
+
 - 缺点
+
+  - 数据一致性问题：只保证最终一致性
+  - 内存占用的问题：每次都会复制，内存占用会变大
+
 - 源码分析
+
+  - 数据结构：数组
+  - 使用了锁：ReentrantLock，写加锁，读不加锁
 
 ### 并发队列
 
-- 阻塞队列
+- 为什么要使用队列
+
+  - 可以在线程中传递数据，生产者和消费者模式、银行转账
+  - 如果队列的线程是安全的，线程安全问题就委托给队列解决了
+
+- 并发队列简介
+
+  - Queue
+  - BlockingQueue
+
+- 各个并发队列的关系图
+
+  ![](队列关系图.png)
+
+- 阻塞队列 - BlokingQueue
+
+  - 简介
+
+    - 有阻塞功能的队列，一端给生产者用，一端给消费者用，是线程安全的，所有生产者和消费者可以是多线程的，take()获取并移除队列的头结点，一但如果执行take的时候，队列里无数据，则阻塞，直到队列里有数据，put() 方法，插入元素，但是如果对了已满，则阻塞，直到队列里有空闲空间了。
+    - 是否有界，如果是无界，最大可以容纳Integer.MAX_VALUE个元素，2^31，已经是无限大了
+    - 阻塞队列和线程池之间的关系
+
+  - 常用方法
+
+    - put、take
+
+      > take：从队首取出元素，如果队列为空，则阻塞
+      >
+      > put：从队尾放入元素，如果队列满了，则阻塞
+
+    - add、remove、element
+
+      > add： 如果队列满了会抛出异常
+      >
+      > remove：空了删除也会报异常
+      >
+      > element：返回队列的头元素，队列空，也抛出异常
+
+    - offer、poll、peek
+
+      > offer：添加元素，如果满了返回false
+      >
+      > poll：取出元素并删除，如果空了，返回null
+      >
+      > peek：取出不删除元素，如果空了，范湖null
+
+  - 常见的阻塞队列
+
+    - ArrayBlockingQueue
+      - 有界，创建的时候指定大小
+      - 公平：可以指定是否保证公平，如果想保证公平的话，那么等待了最长时间的线程会优先处理，不过这会代理性能的损耗，默认是不公平的
+      - 使用案例
+    - LinkedBlockingQueue
+      - 无界，底层是linked，容量是无限大
+      - 有两把锁，take 和put 是分别使用
+    - PriorityBlockingQueue
+      - 支持优先级
+      - 自然顺序（而不是先进先出）
+      - 无界队列，自动扩容
+      - PriorityQueue 线程安全的版本
+    - SynchronousQueue
+      - 容量为0
+      - 直接传递
+      - 效率高
+      - 没有peek函数
+      - newCacheThreadPool 使用了这个队列
+    - DelayQueue
+      - 延迟队列，根据延时时间排序
+      - 元素必须实现Delay接口，规定排序规则
+
+    
+
 - 非阻塞队列
-
-
+  - ConcurrentLinkedQueue
+    - 使用CAS非阻塞算法来实现线程安全
+    - offer方法采用了cas的原理
+- 如何选择适合自己队列
+  - 是否需要有界
+  - 空间
+  - 吞吐量
 
 ### 总结
+
+
+
+## 如何控制并发流程
+
+### 什么是控制并发流程
+
+> 让线程之间进行合作，来满足业务逻辑。比如让线程A等待线程B执行完再执行等
+
+- 并发工具类概览
+
+  | 类             | 作用                                                         | 说明                                                         |
+  | -------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+  | Semaphore      | 信号量，可以通过控制“许可证”的数量，<br />来保证线程之间的配合 | 线程只有在拿到许可证后才能继续运行，<br />相比于其他的同步器，更灵活 |
+  | CyclicBarrier  | 线程会等待，知道足够多线程达到了事先规定的数目，一旦达到触发条件，就可以进行下一步动作 | 使用于线程之间相互等待处理结果就绪的场景                     |
+  | Phaser         | 和CyclicBarrier类似，但是计数器可变                          | java7加入                                                    |
+  | CountDownLatch | 和CyclicBarrier类似，数量递减到0师，触发动作                 | 不可重复使用                                                 |
+  | Exchanger      | 让两个线程在合适的时候交换对象                               | 适用场景：当两个线程工作在同一个类的不同实例上时，用于交换数据 |
+  | Condition      | 可以控制线程的等待和唤醒                                     | 是Object.wait的升级版                                        |
+
+  
+
+### CountDownLatch - 倒计时门闩
+
+- CountDownLatch 类的作用
+
+  - 倒数门闩
+
+  - 例子：购物拼团，过山车的时候需要凑齐一车人再发车
+
+  - 流程：倒数结束之前，一直处于等待状态，知道倒计时结束了，此线程才继续开始工作
+
+  - 主要方法
+
+    - 构造方法 CountDownLatch(int count )：参数为需要倒数的数值
+    - await(): 调用await方法的线程会被挂起，它会等待直到count值为0的时才继续执行
+    - countDown()：将count值减一，直到为0，等待的线程会被唤醒
+
+  - 图示
+
+    ![](countDownLatch图解.png)
+
+- 两个典型的用法
+
+  - 用法一：一个线程等待，其他线程countDown
+
+    ```java
+    package flowControl.countdownlatch;
+    
+    import java.util.concurrent.CountDownLatch;
+    import java.util.concurrent.ExecutorService;
+    import java.util.concurrent.Executors;
+    
+    /**
+     *  工厂中，质检，5个检查人员都检查通过了，才能认为是否通过
+     */
+    public class CountDownLatchDemo1 {
+    
+        public static void main(String[] args) throws InterruptedException {
+            CountDownLatch countDownLatch = new CountDownLatch(5);
+    
+            ExecutorService executorService = Executors.newFixedThreadPool(5);
+    
+            for (int i = 0; i < 5; i++) {
+                final int num = i + 1;
+                Runnable runnable = new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Thread.sleep((long) (Math.random() * 10000));
+                            System.out.println("No." + num + "检查完了");
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        } finally {
+                            countDownLatch.countDown();
+                        }
+                    }
+                };
+                executorService.submit(runnable);
+            }
+            System.out.println("等待5个人检查完.......");
+    
+            countDownLatch.await();
+    
+            System.out.println("所有人都检查完了，可以出厂了");
+    
+            executorService.shutdown();
+    
+    
+        }
+    }
+    
+    ```
+
+  - 用法二：多个线程等待一个线程，服务器进行压力测试，尽量在同一时间发送请求
+
+    ```java
+    package flowControl.countdownlatch;
+    
+    import java.util.concurrent.CountDownLatch;
+    import java.util.concurrent.ExecutorService;
+    import java.util.concurrent.Executors;
+    
+    /**
+     * 模拟跑步比赛
+     */
+    public class CountDownLatchDemo2 {
+    
+        public static void main(String[] args) throws InterruptedException {
+            // 裁判的枪
+            CountDownLatch begin = new CountDownLatch(1);
+            ExecutorService executorService = Executors.newFixedThreadPool(5);
+            for (int i = 0; i < 5; i++) {
+                final int no = i + 1;
+                Runnable runnable = new Runnable() {
+                    @Override
+                    public void run() {
+                        System.out.println("No." + no + "准备完毕，等待发令枪");
+                        try {
+                            begin.await();
+                            System.out.println("No." + no + "开始跑步");
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                };
+    
+                executorService.submit(runnable);
+    
+            }
+    
+            Thread.sleep(5000);
+            System.out.println("发令枪响起，比赛开始！");
+            begin.countDown();
+        }
+    }
+    
+    ```
+
+  - 综合以上两种方法：完整的跑步比赛，开始的裁判和终点的裁判
+
+    ```java
+    package flowControl.countdownlatch;
+    
+    import java.util.concurrent.CountDownLatch;
+    import java.util.concurrent.ExecutorService;
+    import java.util.concurrent.Executors;
+    
+    /**
+     * 模拟跑步比赛 。开始的时候运动员等待裁判的发令枪，到达重点店的时候裁判等待运动员告知我已经跑完了
+     *
+     */
+    public class CountDownLatchDemo1And2 {
+    
+        public static void main(String[] args) throws InterruptedException {
+            // 裁判的枪
+            CountDownLatch begin = new CountDownLatch(1);
+            CountDownLatch end = new CountDownLatch(5);
+            ExecutorService executorService = Executors.newFixedThreadPool(5);
+            for (int i = 0; i < 5; i++) {
+                final int no = i + 1;
+                Runnable runnable = new Runnable() {
+                    @Override
+                    public void run() {
+                        System.out.println("No." + no + "准备完毕，等待发令枪");
+                        try {
+                            begin.await();
+                            System.out.println("No." + no + "开始跑步");
+                            Thread.sleep((long)(Math.random()*10000));
+                            System.out.println("No." + no + "跑到终点了");
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        } finally {
+                            end.countDown();
+                        }
+                    }
+                };
+    
+                executorService.submit(runnable);
+    
+            }
+    
+            Thread.sleep(5000);
+            System.out.println("发令枪响起，比赛开始！");
+            begin.countDown();
+    
+            end.await();
+            System.out.println("所有人到达终点，比赛结束");
+            executorService.shutdown();
+            
+        }
+    }
+    
+    ```
+
+- 注意点
+
+  - 扩展用法：多等多
+  - CountDownLatch不能重用，可以考虑CyclicBarrier
+
+- 总结：
+
+  - 一等多和多等一必须掌握
+  - 不能回滚重置
+
+
+
+### Semaphore - 信号量
+
+> 有限资源的协调，比如现实生活中控制污染工厂的数量，每年只有3个工厂开放
+
+- Semaphore的作用
+
+  - 有限资源的协调，比如特别耗费时间的线程，我们可以控制它最大数量
+  - 使用流程
+    - 初始化信号量并制定许可证的数量
+    - 调用信号量的acquire()或acquireUninterruptibly()方法获取许可证
+      - 如果获取不到就会阻塞，获取到可以执行
+    - 调用完了，调用release()释放许可证
+  - 重要方法
+    - 构造方法
+      - new Semaphore(int premits)
+      - new Semaphore(int permits,boolean fair) : 第二个参数为是否公平，如果传入true，那么Semaphore会把之前等待的线程放到FIFO队列里，以便于当有新的许可证了，可以分给之前等待时间较长的线程
+    - acquire() 可以响应中断
+    - acquireUninterruptibly() 不可响应中断
+    - tryAcquire()：返回是否拿到许可证，拿不到可以不进入阻塞
+    - tryAcquire(long tiemout)：给个等待时间
+    - release()：记得一定要调用
+
+- 代码演示
+
+  - 一般用法
+
+    ```java
+    package flowControl.semaphore;
+    
+    import javax.swing.table.TableRowSorter;
+    import java.util.concurrent.ExecutorService;
+    import java.util.concurrent.Executors;
+    import java.util.concurrent.Semaphore;
+    
+    /**
+     * 一般用法
+     */
+    public class SemaphoreDemo {
+    
+        static Semaphore semaphore = new Semaphore(3,true);
+    
+        public static void main(String[] args) {
+            ExecutorService executorService = Executors.newFixedThreadPool(50);
+            for (int i = 0; i < 100; i++) {
+                executorService.submit(new Task());
+            }
+        }
+    
+        static class Task implements Runnable {
+            @Override
+            public void run() {
+                try {
+                    semaphore.acquire();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                System.out.println(Thread.currentThread().getName() + "拿到了许可证");
+    
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                System.out.println(Thread.currentThread().getName() + "释放了许可证");
+    
+                semaphore.release();
+            }
+        }
+    }
+    
+    ```
+
+  - 特殊用法
+
+    ```java
+    package flowControl.semaphore;
+    
+    import javax.swing.table.TableRowSorter;
+    import java.util.concurrent.ExecutorService;
+    import java.util.concurrent.Executors;
+    import java.util.concurrent.Semaphore;
+    
+    /**
+     * 一般用法
+     */
+    public class SemaphoreDemo {
+    
+        static Semaphore semaphore = new Semaphore(3,true);
+    
+        public static void main(String[] args) {
+            ExecutorService executorService = Executors.newFixedThreadPool(50);
+            for (int i = 0; i < 100; i++) {
+                executorService.submit(new Task());
+            }
+        }
+    
+        static class Task implements Runnable {
+            @Override
+            public void run() {
+                try {
+                    semaphore.acquire(3);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                System.out.println(Thread.currentThread().getName() + "拿到了许可证");
+    
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                System.out.println(Thread.currentThread().getName() + "释放了许可证");
+    
+                semaphore.release(3);
+            }
+        }
+    }
+    
+    ```
+
+    > 一次可以获取多个许可证，注意获取和释放的数量要保存一致，可能导致许可证丢失，导致程序卡死
+
+- 注意点
+
+  - 设置公平性，一般设置为公平
+  - 获取和释放的许可证数量要一致
+  - 释放和获取不要求同一个线程
+  - 可以实现轻量级的CountDownLatch
+
+### Condition 接口 - 条件对象
+
+- 作用
+
+  - 当线程1需要等待某个条件的时候，就去执行condition.await()方法，进入等待状态
+
+  - 另外的线程2，去执行对应的条件，直到这个条件达成的时候，另外的线程2就会执行condition.signal()方法，这个时候jvm就会从被阻塞的线程里找，找到那些等待改condition的线程，线程1就会收到可执行信号，线程状态再次进入到Runnable状态
+
+    > signalAll 和 signal的区别
+    >
+    > signalAll 会唤醒所有正在等待的线程
+    >
+    > signal 是公平的，只会唤醒等待时间最长的线程
+
+- 代码演示
+
+  - 普通的用法
+
+    ```java
+    package flowControl.condition;
+    
+    import java.util.concurrent.locks.Condition;
+    import java.util.concurrent.locks.ReentrantLock;
+    
+    /**
+     * 普通用法 绑定在锁上面
+     */
+    public class ConditionDemo1 {
+    
+        private ReentrantLock lock = new ReentrantLock();
+    
+        private Condition condition = lock.newCondition();
+    
+        void method1(){
+            lock.lock();
+    
+            try {
+                System.out.println("条件不满足，开始await");
+    
+                condition.await();
+    
+                System.out.println("条件满足了，开始执行后续任务");
+    
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } finally {
+                lock.unlock();
+            }
+        }
+    
+    
+        void method2(){
+            lock.lock();
+    
+            try {
+                System.out.println("准备工作完成了，唤醒其他线程");
+                condition.signal();
+            } finally {
+                lock.unlock();
+            }
+        }
+    
+    
+        public static void main(String[] args) {
+            ConditionDemo1 conditionDemo1 = new ConditionDemo1();
+    
+            Thread thread = new Thread(() -> {
+                try {
+                    Thread.sleep(1000);
+                    conditionDemo1.method2();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            });
+    
+            thread.start();
+    
+            conditionDemo1.method1();
+        }
+    }
+    
+    ```
+
+    
+
+  - 实现生产者消费者模式
+
+    ```java
+    package flowControl.condition;
+    
+    import java.util.PriorityQueue;
+    import java.util.concurrent.locks.Condition;
+    import java.util.concurrent.locks.ReentrantLock;
+    
+    /**
+     * Condition 实现生产者和消费者模式
+     */
+    public class ConditionDemo2 {
+    
+        private int queueSize = 10;
+    
+        private PriorityQueue<Integer> queue = new PriorityQueue<>(queueSize);
+    
+        private ReentrantLock lock = new ReentrantLock();
+    
+        private Condition notFull = lock.newCondition();
+        private Condition notEmpty = lock.newCondition();
+    
+    
+        public static void main(String[] args) {
+            ConditionDemo2 conditionDemo2 = new ConditionDemo2();
+            Producer producer = conditionDemo2.new Producer();
+            Consumer consumer = conditionDemo2.new Consumer();
+            producer.start();
+            consumer.start();
+        }
+    
+    
+    
+        class Consumer extends Thread {
+    
+            @Override
+            public void run() {
+                consume();
+            }
+    
+            private void consume() {
+                while (true) {
+                    lock.lock();
+                    try {
+                        while (queue.size() == 0) {
+                            System.out.println("队列空，等待数据生产");
+                            try {
+                                notEmpty.await();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        }
+    
+                        queue.poll();
+                        notFull.signalAll();
+                        System.out.println("从队列中取出了一个元素，当前队列的大小为 " + queue.size());
+    
+                    } finally {
+                        lock.unlock();
+                    }
+                }
+            }
+        }
+    
+    
+        class Producer extends Thread {
+    
+            @Override
+            public void run() {
+                produce();
+            }
+    
+            private void produce() {
+                while (true) {
+                    lock.lock();
+                    try {
+                        while (queue.size() == queueSize) {
+                            System.out.println("队列满，等待数据消费");
+                            try {
+                                notFull.await();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                        queue.offer(1);
+                        notEmpty.signalAll();
+                        System.out.println("向队列中添加了一个元素，当前队列的剩余容量为： " + (queueSize - queue.size()));
+                    }finally {
+                        lock.unlock();
+                    }
+                }
+            }
+        }
+    }
+    
+    ```
+
+    
+
+- 注意点
+
+  - 和Object的wait/notify一样的使用方式
+    - 必须在锁住的代码块里
+    - await会释放持有的lock，和Object.wait一样，不需要手动释放锁
+    - 调用await的时候，必须持有锁，否则会抛出异常
+
+
+
+### CyclicBarrier - 循环栅栏
+
+- 作用
+
+  - 类似CountDownLatch ，都是阻塞一组线程
+  - 当大量的线程相互配合，分别计算不同的任务，并且需要最后统一汇总的时候，我们可以使用CyclicBarrier，可以用来构造一个集结点，当一个线程执行完毕，它就会到集结点等待，直到所有的线程都到达了集结点，那么栅栏就被撤销，所有线程再统一出发，继续执行剩下的任务
+
+- 代码演示
+
+  ```java
+  package flowControl.cyclicbarrier;
+  
+  import java.util.concurrent.BrokenBarrierException;
+  import java.util.concurrent.CyclicBarrier;
+  
+  /**
+   *
+   */
+  public class CyclicBarrierDemo {
+  
+      public static void main(String[] args) {
+          CyclicBarrier cyclicBarrier = new CyclicBarrier(5, new Runnable() {
+              @Override
+              public void run() {
+                  System.out.println("所有人都到齐了，大家一起出发");
+              }
+          });
+  
+          for (int i = 0; i < 10; i++) {
+              new Thread(new Task(i,cyclicBarrier)).start();
+          }
+      }
+  
+      static class Task implements Runnable {
+          private int id;
+          private CyclicBarrier cyclicBarrier;
+  
+          public Task(int id,CyclicBarrier cyclicBarrier) {
+              this.id = id;
+              this.cyclicBarrier = cyclicBarrier;
+          }
+  
+          @Override
+          public void run() {
+              System.out.println("线程" + id + "现在前往集合地点");
+              try {
+                  Thread.sleep((long)(Math.random()*10000));
+                  System.out.println("线程" + id + "到达了集合地点，等待其他线程的到达");
+                  cyclicBarrier.await();
+                  System.out.println("线程" + id + "出发了");
+  
+              } catch (InterruptedException e) {
+                  e.printStackTrace();
+              } catch (BrokenBarrierException e) {
+                  e.printStackTrace();
+              }
+          }
+      }
+  }
+  
+  ```
+
+- 和CountDownLatch的不同
+
+  - 作用不同：CyclicBarrier要等到固定数量的线程到达了栅栏才继续执行，而CountDownLatch只是等待数字到0，也就是说，CountDownLatch用于事件，而CyclicBarrier是用于线程的。
+  - 可重用性不同：CountDownLatch不可重用
+  - CyclicBarrier在都达到之后可以执行一个统一的任务
+
+
 
 
 
 ## AQS原理
 
 - 学习AQS的思路
+
+  - 在并发包中随处可见
+  - 理解原理，提高技术，以及应对面试
+  - 通常不需要自己实现AQS的工具类
+  - 了解应用场景
+
 - 为什么要AQS
+
+  - 锁和协作类有共同点：闸门
+    - 比如ReentrantLock和Semaphore
+    - CountDownLatch、ReentrantReadWriteLock
+  - 因为有共同点，所以我们需要提取功能类似的工具类，就出现了AQS
+  - Semaphore和AQS的关系
+    - Semaphore类有个内部类Sync类，Sync类继承了AQS类
+    - 其实CountDownLatch、ReentrantLock也是一样的结构
+  - AQS的比喻【HR和面试官】
+    - 群面和单面
+      - 群面：10个人一组，来10个人凑齐，就进行面试
+      - 单面：1个人来就面试
+      - 存在共同点：安排就做、叫号、先来后到等HR的工作就是AQS的工作
+  - 如果没有AQS
+    - 协作就需要自己实现
+      - 同步状态的原子性
+      - 线程的阻塞和解除阻塞
+      - 队列的管理
+      - ......
+    - 有了AQS，我们就需要实现自己的业务
+
 - AQS的作用
+
+  - 用于构建锁、同步器、协作工具类，有了AQS以后，更多的协作工具类都可以方便的被写出来
+  - 有了AQS，构建线程协作类就容易多了
+
 - AQS的重要性和地位
-- AQS的内部原理
+
+  - AbstractQueueSynchronizer 是Doug Lea 编写的，从JDK1.5加入的一个基于FIFO等待队列实现的一个用于实现同步器的基础框架，有以下这些实现类：
+
+    ​	![](AQS的实现类.png)
+
+- **AQS的内部原理**
+
+  - state 状态
+    - 会根据具体的实现类有所不同，比如在Semaphore里，表示剩余的许可证数量，而在CountDownLatch里，表示还需要倒数的数量，在ReentrantLock，表示锁的占有情况，包括可重入计数
+    - state是volatile修饰的int值，会被并发修改，所以所有修改state的方法必须保证线程安全，比如getState、setState以及compareAndSetState，这些都依赖j.u.c.atomic包的支持
+  - 控制线程抢锁和配合的FIFO队列（先进先出）
+    - 用来存放等待的线程，相当于排队管理器，双向链表的形式
+  - 期望协作工具类去实现的获取/释放等重要方法
+    - 获取和释放的方法，具体由实现类实现
+      - 获取操作依赖state变量，经常会阻塞（比如获取不到锁的时候），再比如在Semaphore中是acquire，在CountDownLatch中是await
+      - 释放方法，操作不会阻塞，具体也是实现类来实现
+
 - 应用实例，源码解析
+
+  - ·AQS的通常用法
+    - 写一个类，想好协作的逻辑，实现获取/释放方法
+    - 内部写一个Sync类继承AQS类
+    - 根据是否独占来重写tryAcquire/tryRelease，如果是共享就实现tryAcquireShared(int acquires)和tryReleaseShared(int release)等方法，在之前写的获取/释放方法中调用AQS的acquire和release或者shared方法
+  - AQS在CountDownLatch中的应用
+    - 代用await方法会尝试获取共享锁，一开始获取不到该锁，于是线程进入阻塞
+    - 而共享锁可获取的条件，就是state为0
+    - 代用countDown才会改变state
+  - AQS在Semaphore中的应用
+  - AQS在ReetrantLock中的应用
+
 - 用AQS实现自己的Latch【门闩】
 
 
