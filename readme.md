@@ -2392,6 +2392,7 @@ class Incrementer implements Runnable{
     - 代用countDown才会改变state
   - AQS在Semaphore中的应用
   - AQS在ReetrantLock中的应用
+    - tryRelease , 当前线程是否是持有锁的线程，是的话判断state，state代表重入的次数，减到0了，说明可以释放
 
 - 用AQS实现自己的Latch【门闩】
 
