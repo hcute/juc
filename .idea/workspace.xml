@@ -1,19 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="BranchesTreeState">
-    <expand />
+    <expand>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="GROUP_NODE:origin" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+    </expand>
     <select>
       <path>
         <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
-        <item name="LOCAL_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="GROUP_NODE:origin" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="BRANCH:origin/master" type="e8cecc67:BranchNodeDescriptor" />
       </path>
     </select>
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7e9ea8f1-eb4f-459b-941e-aa0d55360479" name="Default Changelist" comment="aqs在ReentrantLock 中的应用">
+      <change afterPath="$PROJECT_DIR$/FutureTask类图.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/aqs/OneShotLatch.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/future/FutureTaskDemo.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/future/GetException.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/future/MultiFutures.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/future/OneFuture.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/future/OneFutureLambda.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/future/RunnableCantThrowsException.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/future/Timeout.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/readme.md" beforeDir="false" afterPath="$PROJECT_DIR$/readme.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/aqs/AQSDemo.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/aqs/AQSDemo.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -68,18 +88,19 @@
   </component>
   <component name="RecentsManager">
     <key name="CopyClassDialog.RECENTS_KEY">
+      <recent name="future" />
       <recent name="flowControl.countdownlatch" />
       <recent name="threadpool" />
       <recent name="cas" />
     </key>
   </component>
-  <component name="RunManager" selected="Application.CyclicBarrierDemo">
-    <configuration name="ConditionDemo1" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
-      <option name="MAIN_CLASS_NAME" value="flowControl.condition.ConditionDemo1" />
+  <component name="RunManager" selected="Application.FutureTaskDemo">
+    <configuration name="FutureTaskDemo" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="future.FutureTaskDemo" />
       <module name="juc" />
       <extension name="coverage">
         <pattern>
-          <option name="PATTERN" value="flowControl.condition.*" />
+          <option name="PATTERN" value="future.*" />
           <option name="ENABLED" value="true" />
         </pattern>
       </extension>
@@ -87,12 +108,12 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
-    <configuration name="ConditionDemo2" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
-      <option name="MAIN_CLASS_NAME" value="flowControl.condition.ConditionDemo2" />
+    <configuration name="GetException" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="future.GetException" />
       <module name="juc" />
       <extension name="coverage">
         <pattern>
-          <option name="PATTERN" value="flowControl.condition.*" />
+          <option name="PATTERN" value="future.*" />
           <option name="ENABLED" value="true" />
         </pattern>
       </extension>
@@ -100,12 +121,12 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
-    <configuration name="CountDownLatchDemo1And2" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
-      <option name="MAIN_CLASS_NAME" value="flowControl.countdownlatch.CountDownLatchDemo1And2" />
+    <configuration name="MultiFutures" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="future.MultiFutures" />
       <module name="juc" />
       <extension name="coverage">
         <pattern>
-          <option name="PATTERN" value="flowControl.countdownlatch.*" />
+          <option name="PATTERN" value="future.*" />
           <option name="ENABLED" value="true" />
         </pattern>
       </extension>
@@ -113,12 +134,12 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
-    <configuration name="CyclicBarrierDemo" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
-      <option name="MAIN_CLASS_NAME" value="flowControl.cyclicbarrier.CyclicBarrierDemo" />
+    <configuration name="OneFuture" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="future.OneFuture" />
       <module name="juc" />
       <extension name="coverage">
         <pattern>
-          <option name="PATTERN" value="flowControl.cyclicbarrier.*" />
+          <option name="PATTERN" value="future.*" />
           <option name="ENABLED" value="true" />
         </pattern>
       </extension>
@@ -126,12 +147,12 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
-    <configuration name="SemaphoreDemo" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
-      <option name="MAIN_CLASS_NAME" value="flowControl.semaphore.SemaphoreDemo" />
+    <configuration name="Timeout" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="future.Timeout" />
       <module name="juc" />
       <extension name="coverage">
         <pattern>
-          <option name="PATTERN" value="flowControl.semaphore.*" />
+          <option name="PATTERN" value="future.*" />
           <option name="ENABLED" value="true" />
         </pattern>
       </extension>
@@ -141,11 +162,11 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Application.CyclicBarrierDemo" />
-        <item itemvalue="Application.ConditionDemo2" />
-        <item itemvalue="Application.ConditionDemo1" />
-        <item itemvalue="Application.SemaphoreDemo" />
-        <item itemvalue="Application.CountDownLatchDemo1And2" />
+        <item itemvalue="Application.FutureTaskDemo" />
+        <item itemvalue="Application.Timeout" />
+        <item itemvalue="Application.GetException" />
+        <item itemvalue="Application.MultiFutures" />
+        <item itemvalue="Application.OneFuture" />
       </list>
     </recent_temporary>
   </component>
@@ -166,6 +187,9 @@
       <workItem from="1588644172741" duration="41000" />
       <workItem from="1588653980070" duration="12777000" />
       <workItem from="1588758324140" duration="1741000" />
+      <workItem from="1588760643450" duration="45000" />
+      <workItem from="1588830143365" duration="637000" />
+      <workItem from="1588830809730" duration="5597000" />
     </task>
     <task id="LOCAL-00001" summary="lock">
       <created>1587512534162</created>
@@ -174,7 +198,14 @@
       <option name="project" value="LOCAL" />
       <updated>1587512534162</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="aqs 在 reentrantLock中的使用">
+      <created>1588760668282</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1588760668282</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -185,7 +216,19 @@
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="origin/master" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
           </value>
         </entry>
       </map>
@@ -195,7 +238,46 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="lock" />
     <MESSAGE value="aqs在ReentrantLock 中的应用" />
-    <option name="LAST_COMMIT_MESSAGE" value="aqs在ReentrantLock 中的应用" />
+    <MESSAGE value="aqs 在 reentrantLock中的使用" />
+    <option name="LAST_COMMIT_MESSAGE" value="aqs 在 reentrantLock中的使用" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="872" y="346" key="#Plugins" timestamp="1588830824861">
+      <screen x="0" y="23" width="2560" height="1351" />
+    </state>
+    <state x="872" y="346" key="#Plugins/-2560.23.2560.1417/0.23.2560.1351@0.23.2560.1351" timestamp="1588830824861" />
+    <state x="1085" y="411" key="#com.intellij.ide.util.MemberChooser" timestamp="1588837085602">
+      <screen x="0" y="23" width="2560" height="1351" />
+    </state>
+    <state x="1085" y="411" key="#com.intellij.ide.util.MemberChooser/-2560.23.2560.1417/0.23.2560.1351@0.23.2560.1351" timestamp="1588837085602" />
+    <state x="960" y="441" key="#com.intellij.openapi.updateSettings.impl.PluginUpdateInfoDialog" timestamp="1588830165576">
+      <screen x="0" y="23" width="2560" height="1351" />
+    </state>
+    <state x="960" y="441" key="#com.intellij.openapi.updateSettings.impl.PluginUpdateInfoDialog/-2560.23.2560.1417/0.23.2560.1351@0.23.2560.1351" timestamp="1588830165576" />
+    <state width="2502" height="387" key="GridCell.Tab.0.bottom" timestamp="1588837273780">
+      <screen x="0" y="23" width="2560" height="1351" />
+    </state>
+    <state width="2502" height="387" key="GridCell.Tab.0.bottom/-2560.23.2560.1417/0.23.2560.1351@0.23.2560.1351" timestamp="1588837273780" />
+    <state width="2502" height="387" key="GridCell.Tab.0.center" timestamp="1588837273780">
+      <screen x="0" y="23" width="2560" height="1351" />
+    </state>
+    <state width="2502" height="387" key="GridCell.Tab.0.center/-2560.23.2560.1417/0.23.2560.1351@0.23.2560.1351" timestamp="1588837273780" />
+    <state width="2502" height="387" key="GridCell.Tab.0.left" timestamp="1588837273780">
+      <screen x="0" y="23" width="2560" height="1351" />
+    </state>
+    <state width="2502" height="387" key="GridCell.Tab.0.left/-2560.23.2560.1417/0.23.2560.1351@0.23.2560.1351" timestamp="1588837273780" />
+    <state width="2502" height="387" key="GridCell.Tab.0.right" timestamp="1588837273780">
+      <screen x="0" y="23" width="2560" height="1351" />
+    </state>
+    <state width="2502" height="387" key="GridCell.Tab.0.right/-2560.23.2560.1417/0.23.2560.1351@0.23.2560.1351" timestamp="1588837273780" />
+    <state x="872" y="438" key="Vcs.Push.Dialog.v2" timestamp="1588760671435">
+      <screen x="0" y="23" width="2560" height="1351" />
+    </state>
+    <state x="872" y="438" key="Vcs.Push.Dialog.v2/-2560.23.2560.1417/0.23.2560.1351@0.23.2560.1351" timestamp="1588760671435" />
+    <state x="937" y="331" width="670" height="676" key="search.everywhere.popup" timestamp="1588837138511">
+      <screen x="0" y="23" width="2560" height="1351" />
+    </state>
+    <state x="937" y="331" width="670" height="676" key="search.everywhere.popup/-2560.23.2560.1417/0.23.2560.1351@0.23.2560.1351" timestamp="1588837138511" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

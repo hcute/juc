@@ -2391,10 +2391,447 @@ class Incrementer implements Runnable{
     - 而共享锁可获取的条件，就是state为0
     - 代用countDown才会改变state
   - AQS在Semaphore中的应用
+    - state表示信号量的数量
   - AQS在ReetrantLock中的应用
     - tryRelease , 当前线程是否是持有锁的线程，是的话判断state，state代表重入的次数，减到0了，说明可以释放
 
 - 用AQS实现自己的Latch【门闩】
+
+  ```java
+  package aqs;
+  
+  import java.util.concurrent.locks.AbstractQueuedSynchronizer;
+  
+  /**
+   * 实现简单的门闩，利用AQS
+   */
+  public class OneShotLatch {
+  
+  
+      private final Sync sync = new Sync();
+  
+      public void signal() {
+          sync.releaseShared(0);
+      }
+  
+      public void await(){
+          sync.acquireShared(0);
+      }
+  
+      private class Sync extends AbstractQueuedSynchronizer{
+  
+          @Override
+          protected int tryAcquireShared(int arg) {
+              return getState() == 1 ? 1 : -1;
+          }
+          @Override
+          protected boolean tryReleaseShared(int arg) {
+              setState(1);
+              return true;
+          }
+      }
+  
+      public static void main(String[] args) throws InterruptedException {
+          OneShotLatch oneShotLatch = new OneShotLatch();
+          for (int i = 0; i < 10; i++) {
+              new Thread(new Runnable() {
+                  @Override
+                  public void run() {
+                      System.out.println(Thread.currentThread().getName() + "尝试获取Latch，获取失败就等待");
+                      oneShotLatch.await();
+                      System.out.println(Thread.currentThread().getName() + "放闸，继续执行");
+                  }
+              }).start();
+          }
+  
+          Thread.sleep(5000);
+          oneShotLatch.signal();
+          new Thread(new Runnable() {
+              @Override
+              public void run() {
+                  System.out.println(Thread.currentThread().getName() + "尝试获取Latch，获取失败就等待");
+                  oneShotLatch.await();
+                  System.out.println(Thread.currentThread().getName() + "放闸，继续执行");
+              }
+          }).start();
+      }
+  }
+  
+  
+  ```
+
+  
+
+> AQS参考资料
+>
+> 美团技术团队《从ReentrantLock的实现看AQS的原理及应用》：https://mp.weixin.qq.com/s/sA01gxC4EbgypCsQt5pVog
+> 老钱《打通 Java 任督二脉 —— 并发数据结构的基石》：https://juejin.im/post/5c11d6376fb9a049e82b6253
+> HongJie《一行一行源码分析清楚AbstractQueuedSynchronizer》：https://javadoop.com/post/AbstractQueuedSynchronizer
+> 爱吃鱼的KK《AbstractQueuedSynchronizer 源码分析 (基于Java 8)》：https://www.jianshu.com/p/e7659436538b
+> waterystone《Java并发之AQS详解》：https://www.cnblogs.com/waterystone/p/4920797.html
+> 英文论文的中文翻译：https://www.cnblogs.com/dennyzhangdd/p/7218510.html
+> AQS作者的英文论文：http://gee.cs.oswego.edu/dl/papers/aqs.pdf
+
+
+
+## Future 和Callable 治理线程的第二大法宝
+
+### Runnable 的缺陷
+
+- 缺陷
+  - 不能返回一个返回值
+  - 不能抛出一个 checked exception
+- 为什么设计成这样
+  - 处理异常的不是我们编写的，所有我们只能try catch
+- 针对无法抛出异常的补救 - Callable
+
+### Callable接口
+
+- 类似Runnable，被其他线程执行的任务
+- 实现call方法
+-  有返回值
+
+
+
+### Future类
+
+- 作用
+  - 执行耗时的方法，可以用子线程执行，主线程可以继续执行
+- Future 和  Callable的关系
+  - 可以用Future的get来获取Callable的执行结果
+  - 还可以用Future的isDone方法来判断任务是否执行完成了，
+  - 取消任务，限时获取任务的结果等
+  - 当call方法未执行完毕之前，调用get方法的线程会阻塞，直到call方法有结果了，才会获取到结果，然后才会切换到Runnable状态
+  - 其实Future就是一个存储器，它存储了call这个任务执行的结果，而这个任务的执行时间是无法提前确定的，取决于call方法的执行情况
+- 主要方法
+  - get方法：获取结果
+    - 取决于Callable任务的状态，只有以下5种情况
+      - 任务正常完成了：get立刻放回结果
+      - 任务尚未完成：未开始或进行中，此时get将阻塞直到任务完成
+      - 任务执行抛出了异常：get方法会抛出异常 ExecitionException，无论call方法抛出什么异常
+      - 任务被取消：get方法抛出CanclelationException
+      - 任务超时：get(long timeout,TimeUnit unit) 传入超时时间，如果还没有拿到结果就抛出TimeoutException，任务超时，需要取消任务 cancel方法
+  - cancel方法：任务取消
+  - isDone方法：判断线程任务是否执行完毕：成功执行，异常完毕
+  - isCancel方法：判断线程任务是否被取消了
+
+### Future用法1：线程池的submit方法返回Future对象
+
+- get的基本用法
+
+  > 给线程池提交任务，返回Future，此时会立即返回一个空的Future容器，当线程的任务一旦执行完毕，可以获取结果的时候，线程池便会把结果填入到之前给我我们的那个Future中去，而不是新建一个Future，此时就可以回去线程的执行结果了
+
+  ```java
+  package future;
+  
+  import java.util.Random;
+  import java.util.concurrent.*;
+  
+  /**
+   * 演示一个Future的使用方法
+   */
+  public class OneFuture {
+  
+      public static void main(String[] args) {
+          ExecutorService executorService = Executors.newFixedThreadPool(10);
+  
+          Future<Integer> submit = executorService.submit(new CallableTask());
+  
+          try {
+              System.out.println(submit.get());
+          } catch (InterruptedException e) {
+              e.printStackTrace();
+          } catch (ExecutionException e) {
+              e.printStackTrace();
+          }
+          executorService.shutdown();
+      }
+  
+      static class CallableTask implements Callable<Integer> {
+          @Override
+          public Integer call() throws Exception {
+              Thread.sleep(3000);
+              return new Random().nextInt();
+          }
+      }
+  }
+  
+  ```
+
+- Callable的Lambda表达式形式
+
+  ```java
+  package future;
+  
+  import java.util.Random;
+  import java.util.concurrent.*;
+  
+  /**
+   * 演示一个Future的使用方法
+   */
+  public class OneFutureLambda {
+  
+      public static void main(String[] args) {
+          ExecutorService executorService = Executors.newFixedThreadPool(10);
+  
+          Callable<Integer> callable = () -> {
+              Thread.sleep(3000);
+              return new Random().nextInt();
+          };
+          Future<Integer> submit = executorService.submit(callable);
+  
+          try {
+              System.out.println(submit.get());
+          } catch (InterruptedException e) {
+              e.printStackTrace();
+          } catch (ExecutionException e) {
+              e.printStackTrace();
+          }
+          executorService.shutdown();
+      }
+  
+  
+  }
+  
+  ```
+
+- 多个任务，用Future数组来获取结果
+
+  ```java 
+  package future;
+  
+  import java.util.ArrayList;
+  import java.util.List;
+  import java.util.Random;
+  import java.util.concurrent.*;
+  
+  /**
+   * 批量提交任务，用list批量接收结果
+   */
+  public class MultiFutures {
+  
+  
+      public static void main(String[] args) {
+          ExecutorService executorService = Executors.newFixedThreadPool(2);
+  
+          List<Future<Integer>> futures = new ArrayList<>();
+          Callable<Integer> callable = () -> {
+              Thread.sleep(3000);
+              return new Random().nextInt();
+          };
+          for (int i = 0; i < 20; i++) {
+              Future<Integer> future = executorService.submit(callable);
+              futures.add(future);
+          }
+  
+          for (int i = 0; i < 20; i++) {
+              try {
+                  Integer integer = futures.get(i).get();
+                  System.out.println(integer);
+              } catch (InterruptedException e) {
+                  e.printStackTrace();
+              } catch (ExecutionException e) {
+                  e.printStackTrace();
+              }
+          }
+      }
+  
+  }
+  
+  ```
+
+- 抛出异常情况
+
+  ```java
+  package future;
+  
+  import com.sun.scenario.effect.impl.sw.sse.SSEBlend_SRC_OUTPeer;
+  
+  import java.util.Random;
+  import java.util.concurrent.*;
+  
+  /**
+   * get方法过程中抛出异常，执行get的时候才会抛出异常
+   */
+  public class GetException {
+      public static void main(String[] args) {
+          ExecutorService executorService = Executors.newFixedThreadPool(10);
+  
+          Future<Integer> submit = executorService.submit(new CallableTask());
+  
+          try {
+              for (int i = 0; i < 5; i++) {
+                  System.out.println(i);
+                  Thread.sleep(500);
+              }
+  
+              System.out.println(submit.isDone());
+              submit.get();
+          } catch (InterruptedException e) {
+              e.printStackTrace();
+              System.out.println("抛出InterruptedException");
+          } catch (ExecutionException e) {
+              e.printStackTrace();
+              System.out.println("抛出ExecutionException");
+  
+          }
+  
+      }
+  
+      static class CallableTask implements Callable<Integer> {
+          @Override
+          public Integer call() throws Exception {
+              throw new IllegalArgumentException("Callable抛出了异常");
+          }
+      }
+  
+  }
+  
+  ```
+
+- get 超时方法，超时后需要处理线程
+
+  ```java
+  package future;
+  
+  import java.util.concurrent.*;
+  
+  /**
+   * 演示get的超时方法，超时之后需要取消任务，cancel方法传入true和false的区别，表示是否中断正在执行的任务
+   */
+  public class Timeout {
+  
+      private static final Ad DEFAULT_AD = new Ad("无网络的时候的默认广告");
+  
+      private static final ExecutorService exec = Executors.newFixedThreadPool(10);
+  
+      static class Ad{
+          String name;
+          public Ad(String name) {
+              this.name = name;
+          }
+          @Override
+          public String toString() {
+              return "Ad{" +
+                      "name='" + name + '\'' +
+                      '}';
+          }
+      }
+  
+      static class FetchAdTask implements Callable<Ad>{
+  
+          @Override
+          public Ad call() throws Exception {
+              try {
+                  Thread.sleep(3000);
+              } catch (InterruptedException e) {
+                  System.out.println("sleep期间被中断了");
+                  return new Ad("被中断时候的默认广告");
+              }
+              return new Ad("旅游订票哪家强？找携程");
+          }
+      }
+  
+      public void printAd(){
+          Future<Ad> f = exec.submit(new FetchAdTask());
+          Ad ad;
+          try {
+              ad = f.get(2000,TimeUnit.MILLISECONDS);
+          } catch (InterruptedException e) {
+              ad = new Ad("被中断的时候的默认广告");
+              e.printStackTrace();
+          } catch (ExecutionException e) {
+              ad = new Ad("异常时候的默认广告");
+              e.printStackTrace();
+          } catch (TimeoutException e) {
+              ad = new Ad("超时时候的默认广告");
+              System.out.println("超时，未获取到广告");
+              boolean cancel = f.cancel(true);
+              System.out.println("cancel的结果，" + cancel);
+  
+          }
+          exec.shutdown();
+          System.out.println(ad);
+      }
+  
+      public static void main(String[] args) {
+          new Timeout().printAd();
+      }
+  }
+  
+  ```
+
+- 任务取消
+
+  - 如果还未开始就取消，任务就会正常被取消，返回true
+  - 如果任务完成，或已取消，那么cancel方法会执行失败，返回false
+  - 如果任务开始执行了，那么这个取消方法将不会直接取消该任务，而是根据我们传入的true和false参数来判断：
+    - true 发送中断信号
+    - false 任务不会中断信号 ？？？？
+      - false 主要是针对未被开始的线程、不清楚任务是否支持取消
+      - **ture 适用于任务中有响应中断的业务逻辑**
+
+### Future用法2：FutureTask来创建Future
+
+- FutureTask是一个包装器，可以吧Callable转换成Future和Runnable，它同时实现了二者的接口
+
+  ![](/Users/mac/IdeaProjects/juc/FutureTask类图.png)
+
+
+
+- 代码
+
+  ```java
+  package future;
+  
+  import java.util.concurrent.*;
+  
+  /**
+   * 演示FutureTask的用法
+   */
+  public class FutureTaskDemo {
+  
+      public static void main(String[] args) {
+          Task task = new Task();
+          FutureTask<Integer> integerFutureTask = new FutureTask<>(task);
+  //        new Thread(integerFutureTask).start();
+          ExecutorService executorService = Executors.newCachedThreadPool();
+          executorService.submit(integerFutureTask);
+          try {
+              System.out.println(integerFutureTask.get());
+          } catch (InterruptedException e) {
+              e.printStackTrace();
+          } catch (ExecutionException e) {
+              e.printStackTrace();
+          }
+      }
+  
+  
+  }
+  class Task implements Callable<Integer> {
+  
+      @Override
+      public Integer call() throws Exception {
+          System.out.println("子线程正在计算");
+          Thread.sleep(3000);
+          int sum = 0;
+          for (int i = 0; i<100; i++){
+              sum+=i;
+          }
+          return sum;
+      }
+  }
+  
+  ```
+
+  
+
+### Future的注意点
+
+- 任务执行的时间是不统一的，会造成阻塞
+  - get的超时方法
+  - 使用CompletableFuture来获取结果
+- 生命周期是不能后退
 
 
 
