@@ -2835,5 +2835,10 @@ class Incrementer implements Runnable{
 
 
 
+## 自己搭建高性能缓存框架
+
+- 使用装饰者模式解耦业务和缓存
+- 利用Future和Callable解决重复计算
+
 
 
