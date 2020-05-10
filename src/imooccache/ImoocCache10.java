@@ -8,7 +8,7 @@ import java.util.concurrent.*;
 
 /**
  *
- * 利用scheduledThreadPool线程池，实现缓存
+ * 利用scheduledThreadPool线程池，实现缓存过期时间
  */
 public class ImoocCache10<A,V> implements Computable<A,V> {
 

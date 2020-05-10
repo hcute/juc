@@ -2837,8 +2837,13 @@ class Incrementer implements Runnable{
 
 ## 自己搭建高性能缓存框架
 
+- 使用ConcurrentHashMap解决并发的问题
+
 - 使用装饰者模式解耦业务和缓存
 - 利用Future和Callable解决重复计算
+- 如何处理缓存中的异常
+- 利用ScheduleThreadPool实现缓存的过期时间，但是需要解决缓存过期时间相同导致的缓存雪崩，此时需要让过期时间随机
+- 不能创建太多的线程去调用缓存，10000个线程就太多了，可以使用CountDownLatch 实现压力测试
 
 
 
